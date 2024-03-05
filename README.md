@@ -1,2 +1,3 @@
 # krico-backup
-C++ space-efficient backup for personal use
+
+Space-efficient backups for personal use
