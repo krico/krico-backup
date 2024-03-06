@@ -10,8 +10,11 @@ enable_testing()
 
 include(GoogleTest)
 
-add_executable(tests
+add_executable(krico_backup_tests
         settings_test.cpp
+        TemporaryFileTest.cpp
+        TemporaryDirectoryTest.cpp
 )
-target_link_libraries(tests libKricoBackup GTest::gtest_main)
-gtest_discover_tests(tests)
+target_link_libraries(krico_backup_tests libKricoBackup GTest::gtest_main)
+
+gtest_discover_tests(krico_backup_tests)

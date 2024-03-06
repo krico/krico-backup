@@ -11,7 +11,7 @@ add_subdirectory(main)
 
 if (BUILD_TESTS)
     message(STATUS "Tests are enabled")
-    add_subdirectory(tests)
+    add_subdirectory(lib/tests)
 else ()
     message(STATUS "Tests are DISABLED")
 endif ()
