@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdexcept>
+#include <system_error>
 
 #define THROW(exc, ...) do { \
   throw exc(__VA_ARGS__);    \

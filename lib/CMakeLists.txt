@@ -9,8 +9,15 @@ add_library(libKricoBackup
         src/TemporaryDirectory.cpp
         src/Directory.cpp
         src/settings.cpp
+        include/krico/backup/Digest.h
+        src/Digest.cpp
 )
+
 target_include_directories(libKricoBackup PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+find_package(OpenSSL 3.2 REQUIRED)
+message(STATUS "Found OpenSSL (version ${OPENSSL_VERSION})")
+target_link_libraries(libKricoBackup OpenSSL::Crypto)
 
 if (GENERATE_DOCS)
     find_package(Doxygen)
