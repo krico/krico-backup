@@ -2,6 +2,7 @@
 
 #include <openssl/evp.h>
 #include <string>
+#include <__filesystem/filesystem_error.h>
 
 //!
 //! Digest routines...
@@ -40,10 +41,15 @@ namespace krico::backup {
 
             [[nodiscard]] std::string str() const;
 
+            //!
+            //! @return the relative path for a file with this digest
+            //!
+            [[nodiscard]] std::filesystem::path path() const;
+
             bool operator==(const result &) const;
         };
 
-        result digest() const;
+        [[nodiscard]] result digest() const;
 
     private:
         EVP_MD *digest_{nullptr};

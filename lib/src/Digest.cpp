@@ -6,6 +6,7 @@
 #include <iomanip>
 
 using namespace krico::backup;
+namespace fs = std::filesystem;
 
 namespace {
     struct openssl_error final : exception {
@@ -103,6 +104,18 @@ Digest::result Digest::digest() const {
 
 std::string Digest::result::str() const {
     std::stringstream ss;
+    for (int i = 0; i < len_; i++) {
+        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(md_[i]);
+    }
+    return ss.str();
+}
+
+fs::path Digest::result::path() const {
+    std::stringstream ss;
+    for (int i = 0; i < 3 && i < len_; i++) {
+        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(md_[i]);
+        ss << fs::path::preferred_separator;
+    }
     for (int i = 0; i < len_; i++) {
         ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(md_[i]);
     }
