@@ -2,13 +2,18 @@
 
 #include <stdexcept>
 #include <system_error>
+#include <sstream>
 
 #define THROW(exc, ...) do { \
+  spdlog::error("{}:{} throw {}({})", __FILE__, __LINE__, #exc, #__VA_ARGS__);    \
   throw exc(__VA_ARGS__);    \
 } while(false)
 
 #define THROW_EXCEPTION(reason) \
   THROW(::krico::backup::exception, reason)
+
+#define THROW_ERROR_CODE(reason, ec) \
+  THROW(::krico::backup::errno_exception, reason, ec)
 
 #define THROW_ERRNO(reason) \
   THROW(::krico::backup::errno_exception, reason, errno)

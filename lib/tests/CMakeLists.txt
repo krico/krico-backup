@@ -17,6 +17,7 @@ add_executable(krico_backup_tests
         DirectoryTest.cpp
         DigestTest.cpp
         BackupTest.cpp
+        Environment.cpp
 )
 target_link_libraries(krico_backup_tests libKricoBackup GTest::gtest_main)
 

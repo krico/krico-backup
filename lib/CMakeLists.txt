@@ -1,18 +1,27 @@
+include(FetchContent)
+FetchContent_Declare(spdlog_proj
+        URL https://github.com/gabime/spdlog/archive/refs/tags/v1.13.0.tar.gz
+        DOWNLOAD_EXTRACT_TIMESTAMP true
+        EXCLUDE_FROM_ALL
+)
+FetchContent_MakeAvailable(spdlog_proj)
+
 add_library(libKricoBackup
         include/krico/backup/exception.h
         include/krico/backup/TemporaryFile.h
         include/krico/backup/TemporaryDirectory.h
         include/krico/backup/Directory.h
+        include/krico/backup/Digest.h
+        include/krico/backup/Backup.h
         include/krico/backup/settings.h
 
         src/TemporaryFile.cpp
         src/TemporaryDirectory.cpp
         src/Directory.cpp
         src/settings.cpp
-        include/krico/backup/Digest.h
         src/Digest.cpp
-        include/krico/backup/Backup.h
         src/Backup.cpp
+        include/krico/backup/io.h
 )
 
 target_include_directories(libKricoBackup PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
@@ -20,6 +29,9 @@ target_include_directories(libKricoBackup PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/inc
 find_package(OpenSSL 3.2 REQUIRED)
 message(STATUS "Found OpenSSL (version ${OPENSSL_VERSION})")
 target_link_libraries(libKricoBackup OpenSSL::Crypto)
+
+# spdlog
+target_link_libraries(libKricoBackup spdlog::spdlog)
 
 if (GENERATE_DOCS)
     find_package(Doxygen)

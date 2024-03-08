@@ -1,12 +1,16 @@
 #include "krico/backup/Directory.h"
 #include "krico/backup/exception.h"
+#include <spdlog/spdlog.h>
 #include <utility>
 
 using namespace krico::backup;
 namespace fs = std::filesystem;
 
 directory_entry::directory_entry(const std::filesystem::path &base, const std::filesystem::path &path)
-    : basePath_(absolute(base)), absolutePath_(absolute(path)), relativePath_(relative(absolutePath_, basePath_)) {
+    : basePath_(absolute(base)), absolutePath_(absolute(path)),
+      relativePath_(absolutePath_.lexically_proximate(basePath_)) {
+    spdlog::debug("directory_entry({}, {}) -> [Base={}][Abs={}][Rel={}]",
+                  base.string(), path.string(), basePath_.string(), absolutePath_.string(), relativePath_.string());
 }
 
 std::filesystem::path directory_entry::absolute_path() const {

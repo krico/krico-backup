@@ -1,5 +1,6 @@
 #include "krico/backup/Digest.h"
 #include "krico/backup/exception.h"
+#include <spdlog/spdlog.h>
 #include <openssl/err.h>
 #include <string>
 #include <sstream>

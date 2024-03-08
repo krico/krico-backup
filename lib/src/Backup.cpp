@@ -1,5 +1,7 @@
 #include "krico/backup/Backup.h"
 #include "krico/backup/exception.h"
+#include "krico/backup/io.h"
+#include <spdlog/spdlog.h>
 #include <format>
 #include <fstream>
 
@@ -19,7 +21,8 @@ namespace {
         for (uint16_t count = 0; count < 1000; ++count) {
             fs::path dir = target / std::format("{0:%Y/%m/%d}_{1:03d}", date, count);
             if (exists(dir)) continue;
-            if (create_directories(dir)) {
+            spdlog::debug("Creating backup directory [{}]", relative(dir, target).string());
+            if (MKDIRS(dir)) {
                 return dir;
             }
             THROW_EXCEPTION("Failed to create directory '" + dir.string() + "'");
@@ -35,22 +38,34 @@ Backup::Backup(const fs::path &source, const fs::path &target, const year_month_
 
 void Backup::run() {
     statistics_ = statistics{};
+    directoryDepth_ = 0;
+    spdlog::debug("Backup started [Source={0}][Target={1}]",
+                  source_.absolute_path().string(),
+                  target_.string());
     statistics_.start_time = system_clock::now();
     backup(source_);
     statistics_.end_time = system_clock::now();
+    spdlog::debug("Backup completed [Source={0}][Target={1}]: {2}",
+                  source_.absolute_path().string(),
+                  target_.string(),
+                  std::format("{:%T}", duration_cast<nanoseconds>(statistics_.end_time - statistics_.start_time)));
 }
 
 void Backup::backup(const Directory &dir) {
     ++statistics_.directories;
+    std::string prefix{};
+    for (int i = 0; i < directoryDepth_; ++i) prefix += " ";
+    ++directoryDepth_;
+    spdlog::debug("{}Entering directory [{}]", prefix, dir.relative_path().string());
 
     if (const fs::path toDir = backupDir_ / dir.relative_path(); exists(toDir)) {
+        spdlog::debug("Exists directory [{}]", relative(toDir, target_).string());
         if (!is_directory(toDir)) {
             THROW_EXCEPTION("Expected dir but got file '" + toDir.string() + "'");
         }
     } else {
-        if (!create_directory(toDir)) {
-            THROW_EXCEPTION("Failed to create directory '" + toDir.string() + "'");
-        }
+        spdlog::debug("Creating directory [{}]", relative(toDir, target_).string());
+        MKDIR(toDir);
     }
     for (const auto &entry: dir) {
         if (entry.is_directory()) {
@@ -59,28 +74,31 @@ void Backup::backup(const Directory &dir) {
             backup(entry.as_file());
         }
     }
+    --directoryDepth_;
+    spdlog::debug("{}Leaving directory [{}]", prefix, dir.relative_path().string());
 }
 
 void Backup::backup(const File &file) {
     ++statistics_.files;
+    spdlog::debug("Backing up file [{}]", file.relative_path().string());
 
     const fs::path toFile = backupDir_ / file.relative_path();
     const fs::path digestFile = digest(file);
 
     if (!exists(digestFile)) {
         if (const fs::path digestDir = digestFile.parent_path(); !is_directory(digestDir)) {
-            if (!create_directories(digestDir)) {
-                THROW_EXCEPTION("Failed to create directory '" + digestDir.string() + "'");
-            }
+            spdlog::debug("Creating directory [{}]", relative(digestDir, target_).string());
+            MKDIRS(digestDir);
         }
         // Write to a temp file and "commit" with a rename
         const fs::path tmpDigestFile = {digestFile.parent_path() / (digestFile.filename().string() + ".tmp")};
-        copy_file(file.absolute_path(), tmpDigestFile);
-        rename(tmpDigestFile, digestFile);
+        COPY_FILE(file.absolute_path(), tmpDigestFile);
+        RENAME_FILE(tmpDigestFile, digestFile);
 
         ++statistics_.files_copied;
     }
-    create_hard_link(digestFile, toFile);
+    CREATE_HARD_LINK(digestFile, toFile);
+    spdlog::debug("Backed up file [{}]", file.relative_path().string());
 }
 
 std::filesystem::path Backup::digest(const File &file) const {

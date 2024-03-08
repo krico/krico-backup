@@ -1,5 +1,6 @@
 #include "krico/backup/TemporaryDirectory.h"
 #include "krico/backup/exception.h"
+#include <spdlog/spdlog.h>
 #include <cstring>
 #include <unistd.h>
 #include <cstdio>

@@ -38,6 +38,7 @@ namespace krico::backup {
         std::chrono::year_month_day date_;
         std::filesystem::path backupDir_;
         statistics statistics_{};
+        uint32_t directoryDepth_;
 
         void backup(const Directory &dir);
 
