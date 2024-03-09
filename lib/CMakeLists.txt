@@ -13,16 +13,18 @@ add_library(libKricoBackup
         include/krico/backup/Directory.h
         include/krico/backup/Digest.h
         include/krico/backup/Backup.h
+        include/krico/backup/io.h
+        include/krico/backup/FileLock.h
         include/krico/backup/settings.h
 
         src/TemporaryFile.cpp
         src/TemporaryDirectory.cpp
         src/Directory.cpp
-        src/settings.cpp
         src/Digest.cpp
         src/Backup.cpp
-        include/krico/backup/io.h
         src/io.cpp
+        src/FileLock.cpp
+        src/settings.cpp
 )
 
 target_include_directories(libKricoBackup PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)

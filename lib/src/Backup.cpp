@@ -17,26 +17,31 @@ namespace {
         return {floor<days>(now)};
     }
 
-    fs::path create_backup_dir(const fs::path &target, const year_month_day &date) {
+    fs::path determine_backup_dir(const fs::path &target, const year_month_day &date) {
         for (uint16_t count = 0; count < 1000; ++count) {
             fs::path dir = target / std::format("{0:%Y/%m/%d}_{1:03d}", date, count);
             if (exists(dir)) continue;
-            if (MKDIRS(dir)) {
-                return dir;
-            }
-            THROW_EXCEPTION("Failed to create directory '" + dir.string() + "'");
+            return dir;
         }
         THROW_EXCEPTION("Too many backups for " + std::format("{0:%Y-%m-%d}", date) + " (max 1000)");
+    }
+
+    FileLock acquire_lock(const fs::path &target) {
+        MKDIRS(target);
+        const fs::path file = target / Backup::LOCKFILE;
+        return FileLock{file};
     }
 }
 
 Backup::Backup(const fs::path &source, const fs::path &target, const year_month_day &date)
-    : digest_(Digest::sha256()), source_(absolute(source)), target_(absolute(target)), date_(backup_date(date)),
-      backupDir_(create_backup_dir(target_, date_)) {
+    : target_(absolute(target)), lock_(acquire_lock(target)),
+      digest_(Digest::sha256()), source_(absolute(source)), date_(backup_date(date)),
+      backupDir_(determine_backup_dir(target_, date_)) {
 }
 
 void Backup::run() {
     statistics_ = statistics{};
+    MKDIRS(backupDir_);
     statistics_.start_time = system_clock::now();
     backup(source_);
     statistics_.end_time = system_clock::now();

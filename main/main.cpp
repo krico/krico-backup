@@ -30,8 +30,9 @@ int main(const int argc, char **argv) {
     Backup backup{source, target};
     backup.run();
     std::cout << "+++ Backup complete +++" << std::endl
-            << "Source       : " << std::setw(26) << source.string() << std::endl
-            << "Target       : " << std::setw(26) << target.string() << std::endl
+            << "Source       : " << source.string() << std::endl
+            << "Target       : " << target.string() << std::endl
+            << "Backup dir   : " << backup.backup_dir().string() << std::endl
             << backup.stats() << std::endl
             << std::endl;
     return 0;

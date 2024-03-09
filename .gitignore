@@ -11,3 +11,5 @@ CTestTestfile.cmake
 _deps
 cmake-build-*/
 build*/
+.DS_Store
+

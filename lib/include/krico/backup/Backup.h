@@ -1,5 +1,6 @@
 #pragma once
 
+#include "FileLock.h"
 #include "Directory.h"
 #include "Digest.h"
 #include <cstdint>
@@ -11,6 +12,8 @@
 namespace krico::backup {
     class Backup {
     public:
+        static constexpr const char *LOCKFILE = ".krico-backup.lock";
+
         //!
         //! Create a new backup copying files from `source` into `target` as of `date`
         //!
@@ -33,9 +36,10 @@ namespace krico::backup {
         [[nodiscard]] const statistics &stats() const { return statistics_; }
 
     private:
+        std::filesystem::path target_;
+        FileLock lock_;
         Digest digest_;
         Directory source_;
-        std::filesystem::path target_;
         std::chrono::year_month_day date_;
         std::filesystem::path backupDir_;
         statistics statistics_{};
@@ -59,6 +63,6 @@ namespace krico::backup {
                << "Symlinks     : " << std::setw(26) << stats.symlinks << std::endl
                << "Start time   : " << std::setw(26) << stats.start_time << std::endl
                << "End time     : " << std::setw(26) << stats.end_time << std::endl
-               << "Elapsed      : " << std::setw(26) << std::format("{0:%T}", elapsed) << std::endl;
+               << "Elapsed      : " << std::setw(26) << std::format("{0:%T}", elapsed);
     }
 }
