@@ -22,6 +22,7 @@ add_library(libKricoBackup
         src/Digest.cpp
         src/Backup.cpp
         include/krico/backup/io.h
+        src/io.cpp
 )
 
 target_include_directories(libKricoBackup PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)

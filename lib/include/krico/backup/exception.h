@@ -2,7 +2,7 @@
 
 #include <stdexcept>
 #include <system_error>
-#include <sstream>
+#include <string>
 
 #define THROW(exc, ...) do { \
   spdlog::error("{}:{} throw {}({})", __FILE__, __LINE__, #exc, #__VA_ARGS__);    \
@@ -11,6 +11,9 @@
 
 #define THROW_EXCEPTION(reason) \
   THROW(::krico::backup::exception, reason)
+
+#define THROW_NOT_IMPLEMENTED(reason) \
+  THROW(::krico::backup::not_implemented, reason)
 
 #define THROW_ERROR_CODE(reason, ec) \
   THROW(::krico::backup::errno_exception, reason, ec)
@@ -27,6 +30,20 @@ namespace krico::backup {
         }
 
         explicit exception(const std::runtime_error &e): std::runtime_error(e) {
+        }
+    };
+
+    struct not_implemented final : exception {
+        not_implemented(): exception("NOT IMPLEMENTED") {
+        }
+
+        explicit not_implemented(const char *str): exception(std::string("NOT IMPLEMENTED: ") + str) {
+        }
+
+        explicit not_implemented(const std::string &str): exception("NOT IMPLEMENTED: " + str) {
+        }
+
+        explicit not_implemented(const std::runtime_error &e): exception(e) {
         }
     };
 

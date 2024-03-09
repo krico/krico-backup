@@ -21,7 +21,6 @@ namespace {
         for (uint16_t count = 0; count < 1000; ++count) {
             fs::path dir = target / std::format("{0:%Y/%m/%d}_{1:03d}", date, count);
             if (exists(dir)) continue;
-            spdlog::debug("Creating backup directory [{}]", relative(dir, target).string());
             if (MKDIRS(dir)) {
                 return dir;
             }
@@ -38,56 +37,43 @@ Backup::Backup(const fs::path &source, const fs::path &target, const year_month_
 
 void Backup::run() {
     statistics_ = statistics{};
-    directoryDepth_ = 0;
-    spdlog::debug("Backup started [Source={0}][Target={1}]",
-                  source_.absolute_path().string(),
-                  target_.string());
     statistics_.start_time = system_clock::now();
     backup(source_);
     statistics_.end_time = system_clock::now();
-    spdlog::debug("Backup completed [Source={0}][Target={1}]: {2}",
-                  source_.absolute_path().string(),
-                  target_.string(),
-                  std::format("{:%T}", duration_cast<nanoseconds>(statistics_.end_time - statistics_.start_time)));
 }
 
 void Backup::backup(const Directory &dir) {
     ++statistics_.directories;
     std::string prefix{};
-    for (int i = 0; i < directoryDepth_; ++i) prefix += " ";
-    ++directoryDepth_;
-    spdlog::debug("{}Entering directory [{}]", prefix, dir.relative_path().string());
 
     if (const fs::path toDir = backupDir_ / dir.relative_path(); exists(toDir)) {
-        spdlog::debug("Exists directory [{}]", relative(toDir, target_).string());
         if (!is_directory(toDir)) {
             THROW_EXCEPTION("Expected dir but got file '" + toDir.string() + "'");
         }
     } else {
-        spdlog::debug("Creating directory [{}]", relative(toDir, target_).string());
         MKDIR(toDir);
     }
     for (const auto &entry: dir) {
         if (entry.is_directory()) {
             backup(entry.as_directory());
-        } else {
+        } else if (entry.is_file()) {
             backup(entry.as_file());
+        } else if (entry.is_symlink()) {
+            backup(entry.as_symlink());
+        } else {
+            THROW_NOT_IMPLEMENTED("Entry type not supported");
         }
     }
-    --directoryDepth_;
-    spdlog::debug("{}Leaving directory [{}]", prefix, dir.relative_path().string());
 }
 
 void Backup::backup(const File &file) {
     ++statistics_.files;
-    spdlog::debug("Backing up file [{}]", file.relative_path().string());
 
     const fs::path toFile = backupDir_ / file.relative_path();
     const fs::path digestFile = digest(file);
 
     if (!exists(digestFile)) {
         if (const fs::path digestDir = digestFile.parent_path(); !is_directory(digestDir)) {
-            spdlog::debug("Creating directory [{}]", relative(digestDir, target_).string());
             MKDIRS(digestDir);
         }
         // Write to a temp file and "commit" with a rename
@@ -98,7 +84,13 @@ void Backup::backup(const File &file) {
         ++statistics_.files_copied;
     }
     CREATE_HARD_LINK(digestFile, toFile);
-    spdlog::debug("Backed up file [{}]", file.relative_path().string());
+}
+
+void Backup::backup(const Symlink &symlink) {
+    ++statistics_.symlinks;
+    const fs::path link = backupDir_ / symlink.relative_path();
+    const fs::path &target = symlink.relative_target();
+    CREATE_SYMLINK(target, link);
 }
 
 std::filesystem::path Backup::digest(const File &file) const {

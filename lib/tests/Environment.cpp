@@ -6,11 +6,11 @@ public:
     void SetUp() override {
         prevLevel_ = spdlog::get_level();
         spdlog::set_level(spdlog::level::debug);
-        spdlog::debug("Test environment SetUp");
+        spdlog::trace("Test environment SetUp");
     }
 
     void TearDown() override {
-        spdlog::debug("Test environment TearDown");
+        spdlog::trace("Test environment TearDown");
         spdlog::set_level(prevLevel_);
     }
 

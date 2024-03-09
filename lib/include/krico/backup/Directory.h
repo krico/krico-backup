@@ -6,6 +6,7 @@
 namespace krico::backup {
     class Directory; // fwd-decl
     class File; // fwd-decl
+    class Symlink; // fwd-decl
 
     //!
     //! An entry such as a File or a Directory obtained by either creating a new Directory or navigating from
@@ -30,11 +31,15 @@ namespace krico::backup {
 
         [[nodiscard]] virtual bool is_file() const { return false; };
 
-        [[nodiscard]] virtual const File &as_file() const { throw std::logic_error("NOT IMPLEMENTED"); };
+        [[nodiscard]] virtual const File &as_file() const;
 
         [[nodiscard]] virtual bool is_directory() const { return false; };
 
-        [[nodiscard]] virtual const Directory &as_directory() const { throw std::logic_error("NOT IMPLEMENTED"); };
+        [[nodiscard]] virtual const Directory &as_directory() const;
+
+        [[nodiscard]] virtual bool is_symlink() const { return false; };
+
+        [[nodiscard]] virtual const Symlink &as_symlink() const;
 
     protected:
         std::filesystem::path basePath_;
@@ -97,6 +102,7 @@ namespace krico::backup {
         [[nodiscard]] iterator end() const;
 
         friend class File;
+        friend class Symlink;
     };
 
     class File final : public directory_entry {
@@ -106,5 +112,27 @@ namespace krico::backup {
         [[nodiscard]] bool is_file() const override { return true; }
 
         [[nodiscard]] const File &as_file() const override { return *this; }
+    };
+
+    class Symlink final : public directory_entry {
+    public:
+        Symlink(const Directory &parent, const std::filesystem::path &file);
+
+        Symlink(const Directory &parent, const std::filesystem::path &file, bool tagetIsDir);
+
+        [[nodiscard]] const std::filesystem::path &target() const { return target_; }
+
+        [[nodiscard]] const std::filesystem::path &relative_target() const { return relativeTarget_; }
+
+        [[nodiscard]] bool is_target_dir() const { return targetIsDir_; }
+
+        [[nodiscard]] bool is_symlink() const override { return true; }
+
+        [[nodiscard]] const Symlink &as_symlink() const override { return *this; }
+
+    private:
+        std::filesystem::path target_;
+        bool targetIsDir_;
+        std::filesystem::path relativeTarget_;
     };
 }
