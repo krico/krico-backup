@@ -12,7 +12,10 @@
 namespace krico::backup {
     class Backup {
     public:
-        static constexpr const char *LOCKFILE = ".krico-backup.lock";
+        static constexpr auto META_DIR = ".krico-backup";
+        static constexpr auto LOCKFILE = "krico-backup.lock";
+        static constexpr auto PREVIOUS_LINK = "previous";
+        static constexpr auto CURRENT_LINK = "current";
 
         //!
         //! Create a new backup copying files from `source` into `target` as of `date`
@@ -20,6 +23,7 @@ namespace krico::backup {
         Backup(const std::filesystem::path &source, const std::filesystem::path &target,
                const std::chrono::year_month_day &date = {});
 
+        [[nodiscard]] const std::chrono::year_month_day &date() const { return date_; }
         [[nodiscard]] const std::filesystem::path &backup_dir() const { return backupDir_; }
 
         void run();
@@ -51,6 +55,8 @@ namespace krico::backup {
         void backup(const Symlink &symlink);
 
         [[nodiscard]] std::filesystem::path digest(const File &file) const;
+
+        void adjust_symlinks() const;
     };
 
     inline std::ostream &operator<<(std::ostream &out, const Backup::statistics &stats) {

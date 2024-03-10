@@ -32,7 +32,7 @@ int main(const int argc, char **argv) {
     std::cout << "+++ Backup complete +++" << std::endl
             << "Source       : " << source.string() << std::endl
             << "Target       : " << target.string() << std::endl
-            << "Backup dir   : " << backup.backup_dir().string() << std::endl
+            << "Backup date  : " << backup.date() << std::endl
             << backup.stats() << std::endl
             << std::endl;
     return 0;

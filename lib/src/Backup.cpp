@@ -18,8 +18,9 @@ namespace {
     }
 
     fs::path determine_backup_dir(const fs::path &target, const year_month_day &date) {
+        const fs::path metaDir = target / Backup::META_DIR;
         for (uint16_t count = 0; count < 1000; ++count) {
-            fs::path dir = target / std::format("{0:%Y/%m/%d}_{1:03d}", date, count);
+            fs::path dir = metaDir / std::format("{0:%Y/%m/%d}_{1:03d}", date, count);
             if (exists(dir)) continue;
             return dir;
         }
@@ -27,8 +28,9 @@ namespace {
     }
 
     FileLock acquire_lock(const fs::path &target) {
-        MKDIRS(target);
-        const fs::path file = target / Backup::LOCKFILE;
+        const fs::path metaDir = target / Backup::META_DIR;
+        MKDIRS(metaDir);
+        const fs::path file = metaDir / Backup::LOCKFILE;
         return FileLock{file};
     }
 }
@@ -44,6 +46,7 @@ void Backup::run() {
     MKDIRS(backupDir_);
     statistics_.start_time = system_clock::now();
     backup(source_);
+    adjust_symlinks();
     statistics_.end_time = system_clock::now();
 }
 
@@ -95,7 +98,11 @@ void Backup::backup(const Symlink &symlink) {
     ++statistics_.symlinks;
     const fs::path link = backupDir_ / symlink.relative_path();
     const fs::path &target = symlink.relative_target();
-    CREATE_SYMLINK(target, link);
+    if (symlink.is_target_dir()) {
+        CREATE_DIRECTORY_SYMLINK(target, link);
+    } else {
+        CREATE_SYMLINK(target, link);
+    }
 }
 
 std::filesystem::path Backup::digest(const File &file) const {
@@ -115,7 +122,31 @@ std::filesystem::path Backup::digest(const File &file) const {
     if (in.eof()) {
         digest_.update(buffer, in.gcount());
         const auto d = digest_.digest();
-        return target_ / d.path();
+        return target_ / META_DIR / d.path();
     }
     THROW_EXCEPTION("Problem reading '" + file.absolute_path().string() + "'");
+}
+
+void Backup::adjust_symlinks() const {
+    const fs::path previous{target_ / PREVIOUS_LINK};
+    if (const auto previous_status = SYMLINK_STATUS(previous); previous_status.type() == fs::file_type::not_found) {
+        spdlog::debug("not found [previous={}]", previous.string());
+    } else if (previous_status.type() == fs::file_type::symlink) {
+        spdlog::debug("remove [previous={}]", previous.string());
+        REMOVE(previous);
+    } else {
+        THROW_EXCEPTION("Previous '" + previous.string() + "' is not a symlink");
+    }
+    const fs::path current{target_ / CURRENT_LINK};
+    if (const auto current_status = SYMLINK_STATUS(current); current_status.type() == fs::file_type::not_found) {
+        spdlog::debug("not found [current={}]", current.string());
+    } else if (current_status.type() == fs::file_type::symlink) {
+        spdlog::debug("rename [current={}][previous={}]", current.string(), previous.string());
+        RENAME_FILE(current, previous);
+    } else {
+        THROW_EXCEPTION("Current '" + current.string() + "' is not a symlink");
+    }
+    const auto target = backupDir_.lexically_relative(target_);
+    spdlog::debug("create symlink [current={} -> {}]", current.string(), target.string());
+    CREATE_SYMLINK(backupDir_.lexically_relative(target_), current);
 }

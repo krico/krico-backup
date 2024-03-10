@@ -55,7 +55,7 @@
 } while (false)
 
 //!
-//! Creates a hard linke target, link
+//! Creates a hard link target, link
 //!
 #define CREATE_HARD_LINK(target, link) do {                                                                           \
   std::error_code error_code$;                                                                                        \
@@ -78,7 +78,7 @@
 })
 
 //!
-//! Creates a hard linke target, link
+//! Creates a symlink target, link
 //!
 #define CREATE_SYMLINK(target, link) do {                                                                           \
   std::error_code error_code$;                                                                                      \
@@ -86,6 +86,59 @@
   if (error_code$)                                                                                                  \
     THROW_ERROR_CODE("Failed to create symlink '" + target.string() + "' -> '" + link.string() + "'", error_code$); \
 } while (false)
+
+//!
+//! Creates a symlink target, link
+//!
+#define CREATE_DIRECTORY_SYMLINK(target, link) do {                                                                 \
+  std::error_code error_code$;                                                                                      \
+  std::filesystem::create_directory_symlink(target, link, error_code$);                                             \
+  if (error_code$)                                                                                                  \
+    THROW_ERROR_CODE("Failed to create symlink '" + target.string() + "' -> '" + link.string() + "'", error_code$); \
+} while (false)
+
+//!
+//! Get the status
+//!
+//! @return status of the file link
+//!
+#define STATUS(file) ({                                                             \
+  std::error_code error_code$;                                                      \
+  auto status = std::filesystem::status(file, error_code$);                         \
+  if (error_code$) {                                                                \
+    if (error_code$ == std::errc::no_such_file_or_directory)                        \
+      status = std::filesystem::file_status(std::filesystem::file_type::not_found); \
+    else                                                                            \
+      THROW_ERROR_CODE("Failed status '" + file.string() + "'", error_code$);       \
+  }                                                                                 \
+  status;                                                                           \
+})
+
+//!
+//! Get the symlink_status
+//!
+//! @return status of the symbolic link
+//!
+#define SYMLINK_STATUS(file) ({                                                       \
+  std::error_code error_code$;                                                        \
+  auto status = std::filesystem::symlink_status(file, error_code$);                   \
+  if (error_code$) {                                                                  \
+    if (error_code$ == std::errc::no_such_file_or_directory)                          \
+      status = std::filesystem::file_status(std::filesystem::file_type::not_found);   \
+    else                                                                              \
+      THROW_ERROR_CODE("Failed symlink status '" + file.string() + "'", error_code$); \
+  }                                                                                   \
+  status;                                                                             \
+})
+//!
+//! Deletes a file
+//!
+#define REMOVE(file) do {                                                      \
+  std::error_code error_code$;                                                 \
+  if (!std::filesystem::remove(file, error_code$))                             \
+    THROW_ERROR_CODE("Failed to remove '" + file.string() + "'", error_code$); \
+} while (false)
+
 
 namespace krico::backup {
     //!
