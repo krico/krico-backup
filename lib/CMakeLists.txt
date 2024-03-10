@@ -29,6 +29,8 @@ add_library(libKricoBackup
 
 target_include_directories(libKricoBackup PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
+add_krico_version(libKricoBackup)
+
 find_package(OpenSSL 3.2 REQUIRED)
 message(STATUS "Found OpenSSL (version ${OPENSSL_VERSION})")
 target_link_libraries(libKricoBackup OpenSSL::Crypto)
@@ -42,9 +44,11 @@ if (GENERATE_DOCS)
     if (Doxygen_FOUND)
         message(STATUS "Found Doxygen (version ${DOXYGEN_VERSION})")
         doxygen_add_docs(libKricoBackupApiDoc
-                include
+                ${CMAKE_CURRENT_SOURCE_DIR}/include
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include
                 COMMENT "Generate libKricoBackup doxygen api docs"
         )
+        add_dependencies(apidoc libKricoBackupApiDoc)
     else (Doxygen_FOUND)
         message(WARNING "Could not find doxygen, api doc will not be generated.
         You can set GENERATE_DOCS=OFF to disable this message")

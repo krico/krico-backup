@@ -1,3 +1,4 @@
+#include "krico/backup/version.h"
 #include "krico/backup/settings.h"
 #include "krico/backup/Backup.h"
 #include <spdlog/spdlog.h>
@@ -13,7 +14,7 @@ int main(const int argc, char **argv) {
     CLI::App app{"Space-efficient backups for personal use", "krico-backup"};
     app.get_formatter()->column_width(40);
     app.get_formatter()->label("REQUIRED", "(required)");
-    app.set_version_flag("-v,--version", "krico-backup (version ???)", "Display version and exit");
+    app.set_version_flag("-v,--version", "krico-backup (version " KRICO_BACKUP_VERSION ")", "Display version and exit");
     argv = app.ensure_utf8(argv);
 
     fs::path source;

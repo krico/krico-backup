@@ -20,6 +20,7 @@ add_executable(krico_backup_tests
         Environment.cpp
         io_test.cpp
         FileLockTest.cpp
+        version_test.cpp
 )
 target_link_libraries(krico_backup_tests libKricoBackup GTest::gtest_main)
 
