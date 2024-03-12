@@ -1,7 +1,6 @@
 #pragma once
 
 #include <filesystem>
-#include <optional>
 
 //!
 //! Utility functions and macros to perform I/O operations.

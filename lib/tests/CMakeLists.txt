@@ -11,7 +11,6 @@ enable_testing()
 include(GoogleTest)
 
 add_executable(krico_backup_tests
-        settings_test.cpp
         TemporaryFileTest.cpp
         TemporaryDirectoryTest.cpp
         DirectoryTest.cpp
@@ -21,6 +20,8 @@ add_executable(krico_backup_tests
         io_test.cpp
         FileLockTest.cpp
         version_test.cpp
+        BackupConfigTest.cpp
+        BackupRepositoryTest.cpp
 )
 target_link_libraries(krico_backup_tests libKricoBackup GTest::gtest_main)
 

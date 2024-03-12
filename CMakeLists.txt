@@ -12,7 +12,7 @@ include(Version)
 
 if (GENERATE_DOCS)
     message(STATUS "Api doc generation enabled (GENERATE_DOCS=ON)")
-    add_custom_target(apidoc ALL DEPENDS ${GENERATE_DOCS_TARGETS})
+    add_custom_target(apidoc DEPENDS ${GENERATE_DOCS_TARGETS})
 else (GENERATE_DOCS)
     message(STATUS "Api doc generation DISABLED (GENERATE_DOCS=OFF)")
 endif (GENERATE_DOCS)

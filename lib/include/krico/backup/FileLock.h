@@ -9,6 +9,8 @@ namespace krico::backup {
     //!
     class FileLock final {
     public:
+        FileLock();
+
         explicit FileLock(std::filesystem::path file);
 
         ~FileLock();

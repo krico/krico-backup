@@ -1,5 +1,4 @@
 #include "krico/backup/version.h"
-#include "krico/backup/settings.h"
 #include "krico/backup/Backup.h"
 #include <spdlog/spdlog.h>
 #include <CLI/CLI.hpp>
@@ -10,7 +9,6 @@ int main(const int argc, char **argv) {
     using namespace krico::backup;
     namespace fs = std::filesystem;
 
-    settings s{};
     CLI::App app{"Space-efficient backups for personal use", "krico-backup"};
     app.get_formatter()->column_width(40);
     app.get_formatter()->label("REQUIRED", "(required)");

@@ -16,6 +16,9 @@ namespace {
     }
 }
 
+FileLock::FileLock(): file_(), fd_(-1) {
+}
+
 FileLock::FileLock(fs::path file) : file_(std::move(file)) {
     fd_ = open(file_.c_str(), O_CREAT | O_RDONLY, S_IRWXU);
     if (fd_ == -1) {
