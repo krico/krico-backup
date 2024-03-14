@@ -4,7 +4,6 @@
 #include <map>
 #include <optional>
 #include <cstdint>
-#include <utility>
 
 namespace krico::backup {
     //!
@@ -19,6 +18,11 @@ namespace krico::backup {
 
         [[nodiscard]] const std::filesystem::path &file() const { return file_; }
 
+        std::optional<std::string> get(const std::string &key) {
+            if (const auto found = list_.find(key); found != list_.end()) return found->second;
+            return std::nullopt;
+        }
+
         std::optional<std::string> get(const std::string &section, const std::string &variable) {
             return get(section, "", variable);
         }
@@ -31,6 +35,13 @@ namespace krico::backup {
                  const std::string &subSection,
                  const std::string &variable,
                  const std::string &value);
+
+        void set(const std::string &key, const std::string &value);
+
+        //!
+        //! Obtain a list of all options in the dot form (e.g. `{<section>.[<sub-section>.]<variable>, <value>}`)
+        //!
+        [[nodiscard]] const std::map<std::string, std::string> &list() const { return list_; }
 
     private:
         struct value {
@@ -61,6 +72,7 @@ namespace krico::backup {
         const std::filesystem::path file_;
         std::map<std::string, section> sections_{};
         std::vector<std::string> lines_{};
+        std::map<std::string, std::string> list_{};
 
         void initialize() const;
 

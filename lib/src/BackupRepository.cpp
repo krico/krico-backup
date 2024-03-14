@@ -5,6 +5,7 @@
 
 
 using namespace krico::backup;
+using namespace std::chrono;
 namespace fs = std::filesystem;
 
 #define ASSERT_LOCKED() do {                                                              \
@@ -26,7 +27,7 @@ namespace {
 
 BackupRepository::BackupRepository(const std::filesystem::path &dir)
     : dir_(absolute(dir)),
-      metaDir_(dir_ / METADATA),
+      metaDir_(dir_ / METADATA_DIR),
       lock_(acquire_lock(dir_, metaDir_)),
       config_(metaDir_ / CONFIG_FILE) {
 }
@@ -36,13 +37,15 @@ BackupRepository BackupRepository::initialize(const std::filesystem::path &dir) 
     if (status.type() != std::filesystem::file_type::directory) {
         THROW_EXCEPTION("Directory '" + dir.string() +"' doesn't exist");
     }
-    const fs::path metaDir = dir / METADATA;
+    const fs::path metaDir = dir / METADATA_DIR;
     status = STATUS(metaDir);
     if (status.type() != std::filesystem::file_type::not_found) {
         THROW_EXCEPTION("Directory '" + dir.string() +"' already initialized");
     }
     MKDIR(metaDir);
-    return BackupRepository{dir};
+    BackupRepository repo{dir};
+    repo.config().set(METADATA_SECTION, "", "init-ts", std::format("{}", system_clock::now()));
+    return repo;
 }
 
 void BackupRepository::unlock() {

@@ -10,9 +10,10 @@ namespace krico::backup {
     //!
     class BackupRepository final {
     public:
-        static constexpr auto METADATA = ".krico-backup";
+        static constexpr auto METADATA_DIR = ".krico-backup";
         static constexpr auto LOCK_FILE = "krico-backup.lock";
         static constexpr auto CONFIG_FILE = "config";
+        static constexpr auto METADATA_SECTION = "metadata";
 
         explicit BackupRepository(const std::filesystem::path &dir);
 
@@ -20,10 +21,13 @@ namespace krico::backup {
 
         [[nodiscard]] const std::filesystem::path &dir() const { return dir_; }
 
+        [[nodiscard]] BackupConfig &config() { return config_; }
+
         //!
         //! Release the lock of this repository, this repository should no longer be used once unlocked
         //!
         void unlock();
+
     private:
         const std::filesystem::path dir_;
         const std::filesystem::path metaDir_;

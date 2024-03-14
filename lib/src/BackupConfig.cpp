@@ -55,16 +55,11 @@ std::optional<std::string> BackupConfig::get(const std::string &section,
                                              const std::string &variable) {
     std::string sectionName = section;
     to_lower(sectionName);
-    if (const auto foundSection = sections_.find(sectionName); foundSection != sections_.end()) {
-        const auto &ssMap = foundSection->second.subSections_;
-        if (const auto foundSubSection = ssMap.find(subSection); foundSubSection != ssMap.end()) {
-            const auto &ss = foundSubSection->second;
-            if (const auto foundVar = ss.values_.find(variable); foundVar != ss.values_.end()) {
-                return foundVar->second.value_;
-            }
-        }
-    }
-    return std::nullopt;
+    std::stringstream key;
+    if (!sectionName.empty()) key << sectionName << '.';
+    if (!subSection.empty()) key << subSection << '.';
+    key << variable;
+    return get(key.str());
 }
 
 void BackupConfig::set(const std::string &section,
@@ -73,6 +68,21 @@ void BackupConfig::set(const std::string &section,
                        const std::string &value) {
     std::string sectionName = section;
     to_lower(sectionName);
+    if (std::ranges::any_of(sectionName, [](const auto &c) { return !(std::isalnum(c) || c == '-'); })) {
+        THROW_EXCEPTION("Invalid section '" + section + "' (only alphanumeric and '-')");
+    }
+    if (variable.empty()) {
+        THROW_EXCEPTION("Variable cannot be empty");
+    }
+    if (std::ranges::any_of(subSection, [](const auto &c) { return c == '\n' || c == '\0' || c == '"' || c == '\\'; })) {
+        THROW_EXCEPTION("Invalid subSection '" + subSection + "' (cannot contain new-line, null byte, '\"' or '\\')");
+    }
+    if (!std::isalpha(variable.front())) {
+        THROW_EXCEPTION("Variable name '" + variable + "' must start an alphabetic character");
+    }
+    if (std::ranges::any_of(variable, [](auto &c) { return !(std::isalnum(c) || c == '-'); })) {
+        THROW_EXCEPTION("Variable '" + variable + "' (start with alphabetic followed by only alphanumeric and '-')");
+    }
     uint32_t sectionLine = 0;
     uint32_t valueLine = 0;
 
@@ -122,9 +132,24 @@ void BackupConfig::set(const std::string &section,
     parse();
 }
 
+void BackupConfig::set(const std::string &key, const std::string &value) {
+    const auto firstDotIdx = key.find('.');
+    if (firstDotIdx == std::string::npos || firstDotIdx == 0 || firstDotIdx == key.size()) {
+        THROW_EXCEPTION("Invalid property key '" + key + "' (section.varname or section.subsection.varname)");
+    }
+    const std::string section{key.substr(0, firstDotIdx)};
+    const auto lastDotIdx = key.rfind('.');
+    const std::string subSection{
+        firstDotIdx == lastDotIdx ? "" : key.substr(firstDotIdx + 1, lastDotIdx - firstDotIdx - 1)
+    };
+    const std::string variable{key.substr(lastDotIdx + 1)};
+    set(section, subSection, variable, value);
+}
+
 namespace {
     struct parser {
         std::ifstream in_;
+        std::string origLine_;
         std::string line_;
         uint32_t lineNo_{0};
         std::string section_{};
@@ -140,7 +165,8 @@ namespace {
 
         bool next() {
             newVariable_ = false;
-            while (std::getline(in_, line_)) {
+            while (std::getline(in_, origLine_)) {
+                line_ = origLine_;
                 lines_.emplace_back(line_);
                 ++lineNo_;
                 ltrim(line_);
@@ -164,7 +190,7 @@ namespace {
 
         void section() {
             if (line_.back() != ']') {
-                THROW_EXCEPTION("Invalid section on line:" + std::to_string(lineNo_) + " '" + line_ + "'");
+                THROW_EXCEPTION("Invalid section on line:" + std::to_string(lineNo_) + " '" + origLine_ + "'");
             }
             line_.erase(0, 1);
             line_.erase(line_.size() - 1);
@@ -178,7 +204,7 @@ namespace {
             }
             section_ = line_.substr(0, i);
             if (section_.empty()) {
-                THROW_EXCEPTION("Emplty section on line:" + std::to_string(lineNo_));
+                THROW_EXCEPTION("Emplty section on line:" + std::to_string(lineNo_) + " '" + origLine_ + "'");
             }
             to_lower(section_);
             line_.erase(0, i);
@@ -189,7 +215,7 @@ namespace {
                 return;
             }
             if (!(line_.front() == '"' && line_.back() == '"')) {
-                THROW_EXCEPTION("Invalid sub-section on line:" + std::to_string(lineNo_) + " '" + line_ + "'");
+                THROW_EXCEPTION("Invalid sub-section on line:" + std::to_string(lineNo_) + " '" + origLine_ + "'");
             }
             subSection_ = line_.substr(1, line_.size() - 2);
         }
@@ -197,7 +223,7 @@ namespace {
         void value() {
             if (!std::isalpha(line_.front())) {
                 THROW_EXCEPTION("Variable name must start an alphabetic character on line:" + std::to_string(lineNo_)
-                    + " '" + line_ + "'");
+                    + " '" + origLine_ + "'");
             }
             std::string::size_type i = 0;
             for (; i < line_.size(); ++i) {
@@ -206,7 +232,7 @@ namespace {
             variableName_ = line_.substr(0, i);
 
             if (variableName_.empty()) {
-                THROW_EXCEPTION("Emplty variable name on line:" + std::to_string(lineNo_));
+                THROW_EXCEPTION("Emplty variable name on line:" + std::to_string(lineNo_) + " '" + origLine_ + "'");
             }
             line_.erase(0, i);
             ltrim(line_);
@@ -216,7 +242,8 @@ namespace {
                 return;
             }
             if (line_.front() != '=') {
-                THROW_EXCEPTION("Invalid variable line (missing '=') on line:" + std::to_string(lineNo_));
+                THROW_EXCEPTION("Invalid variable line (missing '=') on line:" + std::to_string(lineNo_)
+                    + " '" + origLine_ + "'");
             }
             line_.erase(0, 1);
             ltrim(line_);
@@ -227,6 +254,7 @@ namespace {
 
 void BackupConfig::parse() {
     sections_.clear();
+    list_.clear();
 
     parser p{file_};
     while (p.next()) {
@@ -239,6 +267,11 @@ void BackupConfig::parse() {
                                                               sub_section(p.lineNo_, p.subSection_)).first->second;
         if (p.newVariable_) {
             subSection.values_.insert_or_assign(p.variableName_, value{p.lineNo_, p.variableValue_});
+            std::stringstream key;
+            if (!p.section_.empty()) key << p.section_ << ".";
+            if (!p.subSection_.empty()) key << p.subSection_ << ".";
+            key << p.variableName_;
+            list_.insert_or_assign(key.str(), p.variableValue_);
         }
     }
     lines_ = p.lines_;
