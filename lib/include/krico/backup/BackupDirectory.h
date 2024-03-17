@@ -23,6 +23,11 @@ namespace krico::backup {
         BackupDirectory(BackupRepository &repository, const std::filesystem::path &directoryMetaDir);
 
         //!
+        //! @return the BackupRepository owning this backup directory
+        //!
+        [[nodiscard]] BackupRepository &repository() const { return repository_; }
+
+        //!
         //! @return the BackupDirectoryId that uniquely identifies this backup directory
         //!
         [[nodiscard]] const BackupDirectoryId &id() const { return id_; }

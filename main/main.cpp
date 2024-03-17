@@ -5,6 +5,7 @@
 #include "krico/backup/BackupDirectory.h"
 #include "krico/backup/BackupDirectoryId.h"
 #include "krico/backup/BackupRepository.h"
+#include "krico/backup/BackupRunner.h"
 #include <spdlog/spdlog.h>
 #include <CLI/CLI.hpp>
 #include <chrono>
@@ -132,8 +133,7 @@ struct list_subcommand : subcommand {
     }
 
     void list() const {
-        BackupRepository repo{baseOptions_.repoPath_};
-        for (const auto *backupDirectory: repo.list_directories()) {
+        for (BackupRepository repo{baseOptions_.repoPath_}; const auto *backupDirectory: repo.list_directories()) {
             std::cout << backupDirectory->id().relative_path().string() << " -> "
                     << backupDirectory->sourceDir().string() << std::endl;
         }
@@ -143,6 +143,16 @@ struct list_subcommand : subcommand {
 struct run_subcommand : subcommand {
     run_subcommand(CLI::App &app, const base_options &baseOptions)
         : subcommand(app, baseOptions, "run", "Run the backup for this repository") {
+        subCommand_->callback([&] { this->run_backup(); });
+    }
+
+    void run_backup() const {
+        for (BackupRepository repo{baseOptions_.repoPath_}; const auto *backupDirectory: repo.list_directories()) {
+            std::cout << "Running backup of '" << backupDirectory->id().relative_path().string() << "'"
+                    << " from '" << backupDirectory->sourceDir().string() << "'" << std::endl;
+            BackupRunner runner{*backupDirectory};
+            runner.run();
+        }
     }
 };
 

@@ -18,6 +18,7 @@ namespace krico::backup {
         static constexpr auto CONFIG_FILE = "config";
         static constexpr auto METADATA_SECTION = "metadata";
         static constexpr auto DIRECTORIES_DIR = "dirs";
+        static constexpr auto HARDLINKS_DIR = "hlinks";
 
         explicit BackupRepository(const std::filesystem::path &dir);
 
@@ -37,6 +38,11 @@ namespace krico::backup {
         //! Directory where BackupDirectory meta-data are stored
         //!
         [[nodiscard]] const std::filesystem::path &directoriesDir() const { return directoriesDir_; }
+
+        //!
+        //! Directory where BackupDirectory hard-links are stored
+        //!
+        [[nodiscard]] const std::filesystem::path &hardLinksDir() const { return hardLinksDir_; }
 
         //!
         //! Get this repository's config
@@ -64,6 +70,7 @@ namespace krico::backup {
         FileLock lock_;
         BackupConfig config_;
         const std::filesystem::path directoriesDir_;
+        const std::filesystem::path hardLinksDir_;
         bool directoriesLoaded_{false};
         std::vector<std::unique_ptr<BackupDirectory> > directories_{};
 
