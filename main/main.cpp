@@ -2,12 +2,13 @@
 #include "krico/backup/exception.h"
 #include "krico/backup/Backup.h"
 #include "krico/backup/io.h"
+#include "krico/backup/BackupDirectory.h"
+#include "krico/backup/BackupDirectoryId.h"
+#include "krico/backup/BackupRepository.h"
 #include <spdlog/spdlog.h>
 #include <CLI/CLI.hpp>
 #include <chrono>
 #include <iostream>
-
-#include "krico/backup/BackupRepository.h"
 
 using namespace krico::backup;
 namespace fs = std::filesystem;
@@ -104,10 +105,51 @@ struct config_subcommand : subcommand {
     }
 };
 
+struct add_subcommand : subcommand {
+    fs::path dir_{};
+    fs::path sourceDir_{};
+
+    add_subcommand(CLI::App &app, const base_options &baseOptions)
+        : subcommand(app, baseOptions, "add", "Add a backed-up directory") {
+        subCommand_->add_option("dir", dir_,
+                                "Directory under backup repository where the backup of <sourceDir> should reside")
+                ->required();
+        subCommand_->add_option("sourceDir", sourceDir_, "Directory that will be backed up into <dir>")->required();
+        subCommand_->callback([&] { this->add(); });
+    }
+
+    void add() const {
+        BackupRepository repo{baseOptions_.repoPath_};
+        const BackupDirectory directory = repo.add_directory(dir_, sourceDir_);
+        std::cout << "Added " << directory.id().relative_path() << " as backup of " << sourceDir_ << std::endl;
+    }
+};
+
+struct list_subcommand : subcommand {
+    list_subcommand(CLI::App &app, const base_options &baseOptions)
+        : subcommand(app, baseOptions, "list", "List backed-up directories") {
+        subCommand_->callback([&] { this->list(); });
+    }
+
+    void list() const {
+        BackupRepository repo{baseOptions_.repoPath_};
+        for (const auto *backupDirectory: repo.list_directories()) {
+            std::cout << backupDirectory->id().relative_path().string() << " -> "
+                    << backupDirectory->sourceDir().string() << std::endl;
+        }
+    }
+};
+
+struct run_subcommand : subcommand {
+    run_subcommand(CLI::App &app, const base_options &baseOptions)
+        : subcommand(app, baseOptions, "run", "Run the backup for this repository") {
+    }
+};
+
 class krico_backup {
 public:
     krico_backup() {
-        app_.get_formatter()->column_width(80);
+        app_.get_formatter()->column_width(30);
         app_.get_formatter()->label("REQUIRED", "(required)");
         app_.failure_message(CLI::FailureMessage::simple);
         app_.set_version_flag("-v,--version", "krico-backup (version " KRICO_BACKUP_VERSION ")",
@@ -136,6 +178,9 @@ private:
     base_options baseOptions_{.repoPath_ = fs::path{}};
     init_subcommand init_{app_, baseOptions_};
     config_subcommand config_{app_, baseOptions_};
+    add_subcommand add_{app_, baseOptions_};
+    list_subcommand list_{app_, baseOptions_};
+    run_subcommand run_{app_, baseOptions_};
     help_subcommand help_{app_, baseOptions_};
 };
 

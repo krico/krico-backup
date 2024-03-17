@@ -23,12 +23,12 @@ namespace krico::backup {
         //!
         //! Create a new Digest with sha256 implementation
         //!
-        static Digest sha256();
+        [[nodiscard]] static Digest sha256();
 
         //!
         //! Create a new Digest with md5 implementation
         //!
-        static Digest md5();
+        [[nodiscard]] static Digest md5();
 
         void reset() const;
 
@@ -55,4 +55,14 @@ namespace krico::backup {
         EVP_MD *digest_{nullptr};
         EVP_MD_CTX *context_{nullptr};
     };
+
+    //!
+    //! Compute the sha256 checksum of str
+    //!
+    std::string sha256_sum(const std::string &str);
+
+    //!
+    //! Compute the md5 checksum of str
+    //!
+    std::string md5_sum(const std::string &str);
 }

@@ -7,6 +7,8 @@ FetchContent_Declare(spdlog_proj
 FetchContent_MakeAvailable(spdlog_proj)
 
 add_library(libKricoBackup
+        include/gtest/gtest_prod.h
+
         include/krico/backup/exception.h
         include/krico/backup/TemporaryFile.h
         include/krico/backup/TemporaryDirectory.h
@@ -17,6 +19,8 @@ add_library(libKricoBackup
         include/krico/backup/FileLock.h
         include/krico/backup/BackupConfig.h
         include/krico/backup/BackupRepository.h
+        include/krico/backup/BackupDirectoryId.h
+        include/krico/backup/BackupDirectory.h
 
         src/TemporaryFile.cpp
         src/TemporaryDirectory.cpp
@@ -27,6 +31,8 @@ add_library(libKricoBackup
         src/FileLock.cpp
         src/BackupConfig.cpp
         src/BackupRepository.cpp
+        src/BackupDirectoryId.cpp
+        src/BackupDirectory.cpp
 )
 
 target_include_directories(libKricoBackup PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)

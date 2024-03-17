@@ -19,6 +19,11 @@ TEST(DigestTest, sha256) {
     ASSERT_EQ(r, r2);
 }
 
+TEST(DigestTest, sha256_sum) {
+    constexpr auto data = "Hello OpenSSL krico-backup world";
+    ASSERT_EQ("1294ae29913c994993ea89efd7ddae0a73fcedda0b03c17a40c4d9c64bbd36f7", sha256_sum(data));
+}
+
 TEST(DigestTest, md5) {
     // $ echo -n "Hello OpenSSL krico-backup world" |md5sum
     // 956c693dd8533233810472f64715964c -
@@ -32,4 +37,9 @@ TEST(DigestTest, md5) {
     d.update(data, strlen(data));
     const auto r2 = d.digest();
     ASSERT_EQ(r, r2);
+}
+
+TEST(DigestTest, md5_sum) {
+    constexpr auto data = "Hello OpenSSL krico-backup world";
+    ASSERT_EQ("956c693dd8533233810472f64715964c", md5_sum(data));
 }

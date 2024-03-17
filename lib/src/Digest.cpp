@@ -103,6 +103,18 @@ Digest::result Digest::digest() const {
     return r;
 }
 
+std::string krico::backup::sha256_sum(const std::string &str) {
+    const auto md = Digest::sha256();
+    md.update(str.c_str(), str.length());
+    return md.digest().str();
+}
+
+std::string krico::backup::md5_sum(const std::string &str) {
+    const auto md = Digest::md5();
+    md.update(str.c_str(), str.length());
+    return md.digest().str();
+}
+
 std::string Digest::result::str() const {
     std::stringstream ss;
     for (int i = 0; i < len_; i++) {
