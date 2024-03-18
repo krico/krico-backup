@@ -73,6 +73,11 @@ Digest::~Digest() {
     }
 }
 
+Digest Digest::sha1() {
+    constexpr auto ALGORITHM = "SHA-1";
+    return Digest{ALGORITHM};
+}
+
 Digest Digest::sha256() {
     constexpr auto ALGORITHM = "SHA2-256";
     return Digest{ALGORITHM};
@@ -101,6 +106,12 @@ Digest::result Digest::digest() const {
         THROW(openssl_error, "DigestFinal");
     }
     return r;
+}
+
+std::string krico::backup::sha1_sum(const std::string &str) {
+    const auto md = Digest::sha1();
+    md.update(str.c_str(), str.length());
+    return md.digest().str();
 }
 
 std::string krico::backup::sha256_sum(const std::string &str) {

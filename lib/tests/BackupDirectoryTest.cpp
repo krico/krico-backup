@@ -27,7 +27,7 @@ namespace krico::backup {
         const BackupDirectory directory{*repository, id};
         const fs::path expectedDir{repository->dir() / idName};
         ASSERT_EQ(expectedDir, directory.dir());
-        const fs::path expectedMetaDir{repository->directoriesDir() / sha256_sum(idName)};
+        const fs::path expectedMetaDir{repository->directoriesDir() / sha1_sum(idName)};
         ASSERT_EQ(expectedMetaDir, directory.metaDir());
         ASSERT_FALSE(directory.configured());
         fs::path s;

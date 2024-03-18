@@ -4,6 +4,26 @@
 using namespace krico::backup;
 namespace fs = std::filesystem;
 
+TEST(DigestTest, sha1) {
+    // $ echo -n "Hello OpenSSL krico-backup world" |sha1sum
+    // da8eab09d9a8dd6b450cb2184b9d1135cc5260c9 -
+    Digest d = Digest::sha1();
+    constexpr auto data = "Hello OpenSSL krico-backup world";
+    d.update(data, strlen(data));
+    const auto r = d.digest();
+    ASSERT_EQ("da8eab09d9a8dd6b450cb2184b9d1135cc5260c9", r.str());
+    ASSERT_EQ(fs::path{"da/8e/ab/da8eab09d9a8dd6b450cb2184b9d1135cc5260c9"}, r.path());
+    d.reset();
+    d.update(data, strlen(data));
+    const auto r2 = d.digest();
+    ASSERT_EQ(r, r2);
+}
+
+TEST(DigestTest, sha1_sum) {
+    constexpr auto data = "Hello OpenSSL krico-backup world";
+    ASSERT_EQ("da8eab09d9a8dd6b450cb2184b9d1135cc5260c9", sha1_sum(data));
+}
+
 TEST(DigestTest, sha256) {
     // $ echo -n "Hello OpenSSL krico-backup world" |sha256sum
     // 1294ae29913c994993ea89efd7ddae0a73fcedda0b03c17a40c4d9c64bbd36f7  -

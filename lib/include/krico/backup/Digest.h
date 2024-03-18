@@ -21,6 +21,11 @@ namespace krico::backup {
         ~Digest();
 
         //!
+        //! Create a new Digest with sha1 implementation
+        //!
+        [[nodiscard]] static Digest sha1();
+
+        //!
         //! Create a new Digest with sha256 implementation
         //!
         [[nodiscard]] static Digest sha256();
@@ -55,6 +60,11 @@ namespace krico::backup {
         EVP_MD *digest_{nullptr};
         EVP_MD_CTX *context_{nullptr};
     };
+
+    //!
+    //! Compute the sha1 checksum of str
+    //!
+    std::string sha1_sum(const std::string &str);
 
     //!
     //! Compute the sha256 checksum of str

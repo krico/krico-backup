@@ -6,5 +6,5 @@ using namespace krico::backup;
 namespace fs = std::filesystem;
 
 BackupDirectoryId::BackupDirectoryId(const std::string &id)
-    : id_(fs::path{id}.lexically_normal()), relativePath_(id_), idPath_(sha256_sum(id_)) {
+    : id_(fs::path{id}.lexically_normal()), relativePath_(id_), idPath_(sha1_sum(id_)) {
 }

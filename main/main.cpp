@@ -185,7 +185,7 @@ public:
 
 private:
     CLI::App app_{"Space-efficient backups for personal use", "krico-backup"};
-    base_options baseOptions_{.repoPath_ = fs::path{}};
+    base_options baseOptions_{.repoPath_ = absolute(fs::path{})};
     init_subcommand init_{app_, baseOptions_};
     config_subcommand config_{app_, baseOptions_};
     add_subcommand add_{app_, baseOptions_};
