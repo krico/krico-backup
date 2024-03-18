@@ -1,7 +1,7 @@
 #pragma once
 
 #include <filesystem>
-#include <iterator>
+#include <vector>
 
 namespace krico::backup {
     class Directory; // fwd-decl
@@ -81,13 +81,16 @@ namespace krico::backup {
 
         private:
             const Directory *directory_{nullptr};
-            std::filesystem::directory_iterator it_;
+            std::vector<std::filesystem::directory_entry>::const_iterator it_;
             directory_entry *current_{nullptr};
 
-            explicit iterator(const Directory &directory, std::filesystem::directory_iterator it);
+            explicit iterator(const Directory &directory,
+                              std::vector<std::filesystem::directory_entry>::const_iterator it);
 
             friend class Directory;
         };
+
+        Directory(const std::filesystem::path &base, const std::filesystem::path &path);
 
         explicit Directory(const std::filesystem::path &dir);
 
@@ -100,6 +103,9 @@ namespace krico::backup {
         [[nodiscard]] iterator begin() const;
 
         [[nodiscard]] iterator end() const;
+
+    private:
+        std::vector<std::filesystem::directory_entry> entries_{};
 
         friend class File;
         friend class Symlink;

@@ -2,7 +2,6 @@
 #include "krico/backup/exception.h"
 #include "krico/backup/io.h"
 #include <spdlog/spdlog.h>
-#include <utility>
 
 using namespace krico::backup;
 namespace fs = std::filesystem;
@@ -69,23 +68,34 @@ Directory::iterator::reference Directory::iterator::operator*() {
     return *current_;
 }
 
-Directory::iterator::iterator(const Directory &directory, std::filesystem::directory_iterator it)
-    : directory_(&directory), it_(std::move(it)) {
+Directory::iterator::iterator(const Directory &directory,
+                              const std::vector<std::filesystem::directory_entry>::const_iterator it)
+    : directory_(&directory), it_(it) {
 }
 
-Directory::Directory(const fs::path &dir) : directory_entry(dir, dir) {
+Directory::Directory(const std::filesystem::path &base, const std::filesystem::path &path)
+    : directory_entry(base, path) {
+    for (auto const &entry: std::filesystem::directory_iterator{absolutePath_}) {
+        entries_.emplace_back(entry);
+    }
+    // Why does clion think this is broken :(
+    // std::ranges::sort(entries_, [](auto &e1, auto &e2) { return e1.path() < e2.path(); });
+    std::sort(entries_.begin(), entries_.end(), [](auto &e1, auto &e2) { return e1.path() < e2.path(); });
+}
+
+Directory::Directory(const fs::path &dir) : Directory(dir, dir) {
 }
 
 Directory::Directory(const Directory &parent, const std::filesystem::path &dir)
-    : directory_entry(parent.basePath_, dir) {
+    : Directory(parent.basePath_, dir) {
 }
 
 Directory::iterator Directory::begin() const {
-    return iterator(*this, fs::directory_iterator(absolutePath_));
+    return iterator(*this, entries_.begin());
 }
 
 Directory::iterator Directory::end() const {
-    return iterator(*this, fs::directory_iterator());
+    return iterator(*this, entries_.end());
 }
 
 File::File(const Directory &parent, const std::filesystem::path &file)
