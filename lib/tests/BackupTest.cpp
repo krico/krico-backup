@@ -38,7 +38,7 @@ TEST(BackupTest, backup) {
         const fs::path backupFile = bkp.backup_dir() / "file1.txt";
         const fs::path backupFileLink = bkp.backup_dir() / "fileLink.txt";
         const fs::path backupDigest =
-                target / Backup::META_DIR / "12/94/ae/1294ae29913c994993ea89efd7ddae0a73fcedda0b03c17a40c4d9c64bbd36f7";
+                target / Backup::META_DIR / "12/94/ae/29913c994993ea89efd7ddae0a73fcedda0b03c17a40c4d9c64bbd36f7";
         ASSERT_TRUE(exists(backupFile));
         ASSERT_TRUE(exists(backupDigest));
         ASSERT_TRUE(exists(backupFileLink));
@@ -65,7 +65,7 @@ TEST(BackupTest, backup) {
         const fs::path backupFile = bkp1.backup_dir() / "file1.txt";
         const fs::path backupFileLink = bkp1.backup_dir() / "fileLink.txt";
         const fs::path backupDigest =
-                target / Backup::META_DIR / "12/94/ae/1294ae29913c994993ea89efd7ddae0a73fcedda0b03c17a40c4d9c64bbd36f7";
+                target / Backup::META_DIR / "12/94/ae/29913c994993ea89efd7ddae0a73fcedda0b03c17a40c4d9c64bbd36f7";
         bkp1.run();
         const fs::path backup1File = bkp1.backup_dir() / "file1.txt";
         ASSERT_TRUE(exists(backup1File));

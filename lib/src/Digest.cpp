@@ -135,13 +135,11 @@ std::string Digest::result::str() const {
 }
 
 fs::path Digest::result::path() const {
+    constexpr int dirs = 3;
     std::stringstream ss;
-    for (int i = 0; i < 3 && i < len_; i++) {
-        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(md_[i]);
-        ss << fs::path::preferred_separator;
-    }
     for (int i = 0; i < len_; i++) {
         ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(md_[i]);
+        if (i < dirs) ss << fs::path::preferred_separator;
     }
     return ss.str();
 }

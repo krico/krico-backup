@@ -12,7 +12,7 @@ TEST(DigestTest, sha1) {
     d.update(data, strlen(data));
     const auto r = d.digest();
     ASSERT_EQ("da8eab09d9a8dd6b450cb2184b9d1135cc5260c9", r.str());
-    ASSERT_EQ(fs::path{"da/8e/ab/da8eab09d9a8dd6b450cb2184b9d1135cc5260c9"}, r.path());
+    ASSERT_EQ(fs::path{"da/8e/ab/09d9a8dd6b450cb2184b9d1135cc5260c9"}, r.path());
     d.reset();
     d.update(data, strlen(data));
     const auto r2 = d.digest();
@@ -32,7 +32,7 @@ TEST(DigestTest, sha256) {
     d.update(data, strlen(data));
     const auto r = d.digest();
     ASSERT_EQ("1294ae29913c994993ea89efd7ddae0a73fcedda0b03c17a40c4d9c64bbd36f7", r.str());
-    ASSERT_EQ(fs::path{"12/94/ae/1294ae29913c994993ea89efd7ddae0a73fcedda0b03c17a40c4d9c64bbd36f7"}, r.path());
+    ASSERT_EQ(fs::path{"12/94/ae/29913c994993ea89efd7ddae0a73fcedda0b03c17a40c4d9c64bbd36f7"}, r.path());
     d.reset();
     d.update(data, strlen(data));
     const auto r2 = d.digest();
@@ -52,7 +52,7 @@ TEST(DigestTest, md5) {
     d.update(data, strlen(data));
     const auto r = d.digest();
     ASSERT_EQ("956c693dd8533233810472f64715964c", r.str());
-    ASSERT_EQ(fs::path{"95/6c/69/956c693dd8533233810472f64715964c"}, r.path());
+    ASSERT_EQ(fs::path{"95/6c/69/3dd8533233810472f64715964c"}, r.path());
     d.reset();
     d.update(data, strlen(data));
     const auto r2 = d.digest();

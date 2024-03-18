@@ -31,6 +31,7 @@ BackupRepository::BackupRepository(const std::filesystem::path &dir)
       metaDir_(dir_ / METADATA_DIR),
       lock_(acquire_lock(dir_, metaDir_)),
       config_(metaDir_ / CONFIG_FILE),
+      logDir_(metaDir_ / LOG_DIR),
       directoriesDir_(metaDir_ / DIRECTORIES_DIR),
       hardLinksDir_(metaDir_ / HARDLINKS_DIR) {
 }
@@ -47,6 +48,9 @@ BackupRepository BackupRepository::initialize(const std::filesystem::path &dir) 
     }
     MKDIR(metaDir);
     BackupRepository repo{dir};
+    if (!exists(repo.logDir())) {
+        MKDIR(repo.logDir());
+    }
     if (!exists(repo.directoriesDir())) {
         MKDIR(repo.directoriesDir());
     }

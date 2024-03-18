@@ -17,6 +17,7 @@ namespace krico::backup {
         static constexpr auto LOCK_FILE = "krico-backup.lock";
         static constexpr auto CONFIG_FILE = "config";
         static constexpr auto METADATA_SECTION = "metadata";
+        static constexpr auto LOG_DIR = "log";
         static constexpr auto DIRECTORIES_DIR = "dirs";
         static constexpr auto HARDLINKS_DIR = "hlinks";
 
@@ -33,6 +34,11 @@ namespace krico::backup {
         //! Metadata directory of this repository
         //!
         [[nodiscard]] const std::filesystem::path &metaDir() const { return metaDir_; }
+
+        //!
+        //! Directory where log entries are stored
+        //!
+        [[nodiscard]] const std::filesystem::path &logDir() const { return logDir_; }
 
         //!
         //! Directory where BackupDirectory meta-data are stored
@@ -69,6 +75,7 @@ namespace krico::backup {
         const std::filesystem::path metaDir_;
         FileLock lock_;
         BackupConfig config_;
+        const std::filesystem::path logDir_;
         const std::filesystem::path directoriesDir_;
         const std::filesystem::path hardLinksDir_;
         bool directoriesLoaded_{false};
