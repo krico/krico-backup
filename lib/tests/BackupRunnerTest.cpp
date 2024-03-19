@@ -1,4 +1,5 @@
 #include "krico/backup/BackupRunner.h"
+#include "krico/backup/BackupRepository.h"
 #include "krico/backup/TemporaryDirectory.h"
 #include <gtest/gtest.h>
 

@@ -9,6 +9,12 @@
 //!
 
 namespace krico::backup {
+    namespace DigestLength {
+        static constexpr unsigned int SHA1 = 20;
+        static constexpr unsigned int SHA256 = 32;
+        static constexpr unsigned int MD5 = 16;
+    }
+
     class Digest {
     public:
         //!
@@ -47,14 +53,26 @@ namespace krico::backup {
             [[nodiscard]] std::string str() const;
 
             //!
-            //! @return the relative path for a file with this digest
+            //! @return the relative path for a file with this digest with `dirs` directories
             //!
-            [[nodiscard]] std::filesystem::path path() const;
+            [[nodiscard]] std::filesystem::path path(uint8_t dirs) const;
 
             bool operator==(const result &) const;
         };
 
+        static constexpr result SHA1_ZERO{.len_ = DigestLength::SHA1};
+        static constexpr result SHA256_ZERO{.len_ = DigestLength::SHA256};
+        static constexpr result MD5_ZERO{.len_ = DigestLength::MD5};
+
+        //!
+        //! Compute the digest result
+        //!
         [[nodiscard]] result digest() const;
+
+        //!
+        //! Compute the zero result (aka: result of digest-length wiht all zeroes)
+        //!
+        [[nodiscard]] result zero() const;
 
     private:
         EVP_MD *digest_{nullptr};

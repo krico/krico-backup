@@ -108,6 +108,12 @@ Digest::result Digest::digest() const {
     return r;
 }
 
+Digest::result Digest::zero() const {
+    result r{};
+    r.len_ = EVP_MD_get_size(digest_);
+    return r;
+}
+
 std::string krico::backup::sha1_sum(const std::string &str) {
     const auto md = Digest::sha1();
     md.update(str.c_str(), str.length());
@@ -134,8 +140,7 @@ std::string Digest::result::str() const {
     return ss.str();
 }
 
-fs::path Digest::result::path() const {
-    constexpr int dirs = 3;
+fs::path Digest::result::path(const uint8_t dirs) const {
     std::stringstream ss;
     for (int i = 0; i < len_; i++) {
         ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(md_[i]);

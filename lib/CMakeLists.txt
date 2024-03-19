@@ -37,6 +37,7 @@ add_library(libKricoBackup
         src/BackupDirectory.cpp
         src/BackupRunner.cpp
         src/BackupRepositoryLog.cpp
+        include/krico/backup/uint8_utils.h
 )
 
 target_include_directories(libKricoBackup PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)

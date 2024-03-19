@@ -2,12 +2,11 @@
 
 #include "FileLock.h"
 #include "BackupConfig.h"
+#include "BackupDirectory.h"
 #include <filesystem>
 #include <vector>
 
 namespace krico::backup {
-    class BackupDirectory; // fwd-decl
-
     //!
     //! Manages the interactions with meta-data of a backup target directory
     //!

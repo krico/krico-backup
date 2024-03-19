@@ -122,7 +122,7 @@ std::filesystem::path Backup::digest(const File &file) const {
     if (in.eof()) {
         digest_.update(buffer, in.gcount());
         const auto d = digest_.digest();
-        return target_ / META_DIR / d.path();
+        return target_ / META_DIR / d.path(3);
     }
     THROW_EXCEPTION("Problem reading '" + file.absolute_path().string() + "'");
 }

@@ -15,6 +15,7 @@ namespace krico::backup {
     public:
         static constexpr auto PREVIOUS_LINK = "previous";
         static constexpr auto CURRENT_LINK = "current";
+        static constexpr auto DIGEST_DIRS = 2;
 
         explicit BackupRunner(const BackupDirectory &directory);
 

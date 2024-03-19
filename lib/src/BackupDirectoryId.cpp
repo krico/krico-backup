@@ -1,6 +1,5 @@
 #include "krico/backup/BackupDirectoryId.h"
 #include "krico/backup/Digest.h"
-#include "krico/backup/Digest.h"
 
 using namespace krico::backup;
 namespace fs = std::filesystem;

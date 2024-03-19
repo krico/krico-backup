@@ -1,10 +1,11 @@
 #pragma once
 
-#include "BackupRepository.h"
 #include "BackupDirectoryId.h"
 #include "gtest/gtest_prod.h"
 
 namespace krico::backup {
+    class BackupRepository; // fwd-decl
+
     class BackupDirectory {
     public:
         using ptr = std::unique_ptr<BackupDirectory>;

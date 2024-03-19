@@ -1,4 +1,5 @@
 #include "krico/backup/BackupDirectory.h"
+#include "krico/backup/BackupRepository.h"
 #include "krico/backup/exception.h"
 #include "krico/backup/io.h"
 #include <spdlog/spdlog.h>

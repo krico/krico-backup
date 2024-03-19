@@ -1,4 +1,5 @@
 #include "krico/backup/BackupRunner.h"
+#include "krico/backup/BackupRepository.h"
 #include "krico/backup/exception.h"
 #include "krico/backup/io.h"
 #include <spdlog/spdlog.h>
@@ -105,7 +106,7 @@ std::filesystem::path BackupRunner::digest(const File &file) const {
     if (in.eof()) {
         digest_.update(buffer, in.gcount());
         const auto d = digest_.digest();
-        return directory_.repository().hardLinksDir() / d.path();
+        return directory_.repository().hardLinksDir() / d.path(DIGEST_DIRS);
     }
     THROW_EXCEPTION("Problem reading '" + file.absolute_path().string() + "'");
 }
