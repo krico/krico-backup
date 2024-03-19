@@ -5,6 +5,7 @@
 #include <fstream>
 #include <cstring>
 #include <chrono>
+#include <utility>
 
 #include "krico/backup/io.h"
 #include "krico/backup/TemporaryFile.h"
@@ -88,6 +89,98 @@ void InitLogEntry::read(std::istream &in) {
     author_ = std::string((std::istreambuf_iterator(in)), std::istreambuf_iterator<char>());
 }
 
+AddDirectoryLogEntry::AddDirectoryLogEntry() : LogEntry(LogEntryType::AddDirectory) {
+}
+
+AddDirectoryLogEntry::AddDirectoryLogEntry(const std::string &author,
+                                           const std::string &directoryId,
+                                           const std::filesystem::path &sourceDir)
+    : LogEntry(LogEntryType::AddDirectory),
+      authorLength_(author.length()),
+      directoryIdLength_(directoryId.length()) {
+    const auto sourceDirStr = sourceDir.string();
+    sourceDirLength_ = sourceDirStr.length();
+    buffer_ = static_cast<uint8_t *>(std::malloc(bufferSize()));
+    if (!buffer_) {
+        THROW_EXCEPTION("Failed to allocate buffer of size: " + std::to_string(bufferSize()));
+    }
+    buffer_[offsets::AddDirectoryLogEntry::AuthorLength] = authorLength_;
+    put_le(buffer_ + offsets::AddDirectoryLogEntry::DirectoryIdLength, directoryIdLength_);
+    put_le(buffer_ + offsets::AddDirectoryLogEntry::SourceDirLength, sourceDirLength_);
+    std::memcpy(buffer_ + offsets::AddDirectoryLogEntry::Author, author.c_str(), authorLength_);
+    std::memcpy(buffer_ + offsets::AddDirectoryLogEntry::Author + authorLength_,
+                directoryId.c_str(), directoryIdLength_);
+    std::memcpy(buffer_ + offsets::AddDirectoryLogEntry::Author + authorLength_ + directoryIdLength_,
+                sourceDirStr.c_str(), sourceDirLength_);
+}
+
+void AddDirectoryLogEntry::update(const Digest &digest) const {
+    LogEntry::update(digest);
+    digest.update(buffer_, bufferSize());
+}
+
+void AddDirectoryLogEntry::write(std::ostream &out) const {
+    LogEntry::write(out);
+    if (!out.write(reinterpret_cast<const char *>(buffer_), bufferSize())) {
+        THROW_EXCEPTION("Failed to write AddDirectoryLogEntry");
+    }
+}
+
+void AddDirectoryLogEntry::read(std::istream &in) {
+    LogEntry::read(in);
+    uint8_t lengths[lengths::AddDirectoryLogEntry::Lengths];
+    if (!in.read(reinterpret_cast<char *>(lengths), lengths::AddDirectoryLogEntry::Lengths)) {
+        THROW_EXCEPTION("Failed to read AddDirectoryLogEntry lengths");
+    }
+    authorLength_ = lengths[offsets::AddDirectoryLogEntry::AuthorLength];
+    directoryIdLength_ = get_le<uint16_t>(lengths + offsets::AddDirectoryLogEntry::DirectoryIdLength);
+    sourceDirLength_ = get_le<uint16_t>(lengths + offsets::AddDirectoryLogEntry::SourceDirLength);
+
+    if (buffer_) {
+        std::free(buffer_);
+    }
+    buffer_ = static_cast<uint8_t *>(std::malloc(bufferSize()));
+    if (!buffer_) {
+        THROW_EXCEPTION("Failed to allocate buffer of size: " + std::to_string(bufferSize()));
+    }
+    std::memcpy(buffer_, lengths, lengths::AddDirectoryLogEntry::Lengths);
+    if (!in.read(reinterpret_cast<char *>(buffer_ + lengths::AddDirectoryLogEntry::Lengths),
+                 bufferSize() - lengths::AddDirectoryLogEntry::Lengths)) {
+        THROW_EXCEPTION("Failed to read AddDirectoryLogEntry data");
+    }
+}
+
+std::string_view AddDirectoryLogEntry::author() const {
+    return std::string_view{
+        reinterpret_cast<const char *>(buffer_
+                                       + offsets::AddDirectoryLogEntry::Author),
+        authorLength_
+    };
+}
+
+std::string_view AddDirectoryLogEntry::directoryId() const {
+    return std::string_view{
+        reinterpret_cast<const char *>(buffer_
+                                       + offsets::AddDirectoryLogEntry::Author
+                                       + authorLength_),
+        directoryIdLength_
+    };
+}
+
+std::string_view AddDirectoryLogEntry::sourceDir() const {
+    return std::string_view{
+        reinterpret_cast<const char *>(buffer_
+                                       + offsets::AddDirectoryLogEntry::Author
+                                       + authorLength_
+                                       + directoryIdLength_),
+        sourceDirLength_
+    };
+}
+
+size_t AddDirectoryLogEntry::bufferSize() const {
+    return lengths::AddDirectoryLogEntry::Lengths + authorLength_ + directoryIdLength_ + sourceDirLength_;
+}
+
 BackupRepositoryLog::BackupRepositoryLog(std::filesystem::path dir)
     : dir_(std::move(dir)),
       headFile_(dir_ / HEAD_FILE),
@@ -95,12 +188,19 @@ BackupRepositoryLog::BackupRepositoryLog(std::filesystem::path dir)
       digest_(Digest::sha1()) {
 }
 
-void BackupRepositoryLog::addInitLogEntry(const std::string &author) {
+void BackupRepositoryLog::putInitLogEntry(const std::string &author) {
     InitLogEntry entry{author};
-    addLogEntry(entry);
+    putLogEntry(entry);
 }
 
-void BackupRepositoryLog::addLogEntry(LogEntry &entry) {
+void BackupRepositoryLog::putAddDirectoryLogEntry(const std::string &author,
+                                                  const std::string &directoryId,
+                                                  const std::filesystem::path &sourceDir) {
+    AddDirectoryLogEntry entry{author, directoryId, sourceDir};
+    putLogEntry(entry);
+}
+
+void BackupRepositoryLog::putLogEntry(LogEntry &entry) {
     entry.prev(head());
     entry.ts(duration_cast<nanoseconds>(system_clock::now().time_since_epoch()).count());
     digest_.reset();
@@ -135,6 +235,9 @@ const LogEntry &BackupRepositoryLog::getLogEntry(const Digest::result &digest) {
         switch (type) {
             case LogEntryType::Initialized:
                 readLogEntry_ = std::make_unique<InitLogEntry>();
+                break;
+            case LogEntryType::AddDirectory:
+                readLogEntry_ = std::make_unique<AddDirectoryLogEntry>();
                 break;
             default:
                 spdlog::warn("Unknown LogEntryType: {}", std::to_string(entryType));

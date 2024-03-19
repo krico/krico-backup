@@ -9,7 +9,8 @@
 namespace krico::backup {
     enum class LogEntryType : uint8_t {
         NONE = 0,
-        Initialized,
+        Initialized = 1,
+        AddDirectory = 2,
     };
 
     namespace lengths {
@@ -20,7 +21,17 @@ namespace krico::backup {
             static constexpr size_t TotalLength = Type + Hash + Ts;
         }
 
-        namespace Next {
+        namespace AddDirectoryLogEntry {
+            static constexpr size_t AuthorLength = 1;
+            static constexpr size_t DirectoryIdLength = 2;
+            static constexpr size_t SourceDirLength = 2;
+            //!
+            //! [uint8_t, uint16_t, uint16_t] respective lengths of
+            //!  - AddDirectoryLogEntry::author
+            //!  - AddDirectoryLogEntry::directoryId
+            //!  - AddDirectoryLogEntry::sourcePath
+            //!
+            static constexpr size_t Lengths = AuthorLength + DirectoryIdLength + SourceDirLength;
         }
     }
 
@@ -33,7 +44,13 @@ namespace krico::backup {
             static_assert(EndOfAttributes == lengths::LogEntry::TotalLength);
         }
 
-        namespace Next {
+        namespace AddDirectoryLogEntry {
+            static constexpr size_t Lengths = 0;
+            static constexpr size_t AuthorLength = 0;
+            static constexpr size_t DirectoryIdLength = AuthorLength + lengths::AddDirectoryLogEntry::AuthorLength;
+            static constexpr size_t SourceDirLength = DirectoryIdLength
+                                                      + lengths::AddDirectoryLogEntry::DirectoryIdLength;
+            static constexpr size_t Author = Lengths + lengths::AddDirectoryLogEntry::Lengths;
         }
     }
 
@@ -93,6 +110,35 @@ namespace krico::backup {
         std::string author_;
     };
 
+    class AddDirectoryLogEntry final : public LogEntry {
+    public:
+        AddDirectoryLogEntry();
+
+        AddDirectoryLogEntry(const std::string &author,
+                             const std::string &directoryId,
+                             const std::filesystem::path &sourceDir);
+
+        [[nodiscard]] std::string_view author() const;
+
+        [[nodiscard]] std::string_view directoryId() const;
+
+        [[nodiscard]] std::string_view sourceDir() const;
+
+        void update(const Digest &digest) const override;
+
+        void write(std::ostream &out) const override;
+
+        void read(std::istream &in) override;
+
+    private:
+        uint8_t *buffer_{nullptr};
+        uint8_t authorLength_{0};
+        uint16_t directoryIdLength_{0};
+        uint16_t sourceDirLength_{0};
+
+        [[nodiscard]] size_t bufferSize() const;
+    };
+
     //!
     //! Manages the log_entry chain
     //!
@@ -110,7 +156,14 @@ namespace krico::backup {
         //!
         //! Add an InitLogEntry to the BackupRepositoryLog.
         //!
-        void addInitLogEntry(const std::string &author);
+        void putInitLogEntry(const std::string &author);
+
+        //!
+        //! Add an AddDirectoryLogEntry to the BackupRepositoryLog.
+        //!
+        void putAddDirectoryLogEntry(const std::string &author,
+                                     const std::string &directoryId,
+                                     const std::filesystem::path &sourceDir);
 
         //!
         //! Retrieve a given LogEntry **only valid** until the next call to getLogEntry(), getHeadLogEntry() or getPrev()
@@ -137,8 +190,8 @@ namespace krico::backup {
         Digest digest_;
         LogEntry::ptr readLogEntry_{nullptr};
 
-        void addLogEntry(LogEntry &entry);
+        void putLogEntry(LogEntry &entry);
 
-        FRIEND_TEST(BackupRepositoryLogTest, addLogEntry);
+        FRIEND_TEST(BackupRepositoryLogTest, putLogEntry);
     };
 }

@@ -47,15 +47,15 @@ namespace krico::backup {
         ASSERT_EQ(std::numeric_limits<uint64_t>::max(), entry.ts());
     }
 
-    TEST(BackupRepositoryLogTest, addLogEntry) {
+    TEST(BackupRepositoryLogTest, putLogEntry) {
         const TemporaryDirectory tmp{};
         BackupRepositoryLog log{tmp.dir()};
         LogEntry e1{};
         LogEntry e2{};
         LogEntry e3{};
-        log.addLogEntry(e1);
-        log.addLogEntry(e2);
-        log.addLogEntry(e3);
+        log.putLogEntry(e1);
+        log.putLogEntry(e2);
+        log.putLogEntry(e3);
 
         const LogEntry r3 = log.getHeadLogEntry();
         ASSERT_EQ(e3.type(), r3.type());
@@ -73,11 +73,11 @@ namespace krico::backup {
         ASSERT_EQ(e1.ts(), r1.ts());
     }
 
-    TEST(BackupRepositoryLogTest, addInitLogEntry) {
+    TEST(BackupRepositoryLogTest, putInitLogEntry) {
         const TemporaryDirectory tmp{};
         BackupRepositoryLog log{tmp.dir()};
         uint64_t now1 = duration_cast<nanoseconds>(system_clock::now().time_since_epoch()).count();
-        log.addInitLogEntry("John Doe");
+        log.putInitLogEntry("John Doe");
 
         const auto &e1 = log.getHeadLogEntry();
         ASSERT_EQ(LogEntryType::Initialized, e1.type());
@@ -88,7 +88,7 @@ namespace krico::backup {
         ASSERT_EQ(ts1, i1.ts());
 
         uint64_t now2 = duration_cast<nanoseconds>(system_clock::now().time_since_epoch()).count();
-        log.addInitLogEntry("Bob Marley");
+        log.putInitLogEntry("Bob Marley");
 
         const auto &e2 = log.getHeadLogEntry();
         ASSERT_EQ(LogEntryType::Initialized, e2.type());
@@ -104,5 +104,17 @@ namespace krico::backup {
         ASSERT_EQ("John Doe", ir1.author());
         ASSERT_EQ(ts1, ir1.ts());
         ASSERT_EQ(Digest::SHA1_ZERO, ir1.prev());
+    }
+
+    TEST(BackupRepositoryLogTest, putAddDirectoryLogEntry) {
+        const TemporaryDirectory tmp{};
+        BackupRepositoryLog log{tmp.dir()};
+        log.putAddDirectoryLogEntry("John Senna", "TheBackup", "/tmp/MyTheBackup");
+        const auto &e1 = log.getHeadLogEntry();
+        ASSERT_EQ(LogEntryType::AddDirectory, e1.type());
+        const auto &a1 = reinterpret_cast<const AddDirectoryLogEntry &>(e1);
+        ASSERT_EQ("John Senna", a1.author());
+        ASSERT_EQ("TheBackup", a1.directoryId());
+        ASSERT_EQ("/tmp/MyTheBackup", a1.sourceDir());
     }
 }
