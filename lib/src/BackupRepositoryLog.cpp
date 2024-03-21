@@ -92,6 +92,13 @@ void InitLogEntry::read(std::istream &in) {
 AddDirectoryLogEntry::AddDirectoryLogEntry() : LogEntry(LogEntryType::AddDirectory) {
 }
 
+AddDirectoryLogEntry::~AddDirectoryLogEntry() {
+    if (buffer_) {
+        std::free(buffer_);
+        buffer_ = nullptr;
+    }
+}
+
 AddDirectoryLogEntry::AddDirectoryLogEntry(const std::string &author,
                                            const std::string &directoryId,
                                            const std::filesystem::path &sourceDir)
@@ -181,6 +188,37 @@ size_t AddDirectoryLogEntry::bufferSize() const {
     return lengths::AddDirectoryLogEntry::Lengths + authorLength_ + directoryIdLength_ + sourceDirLength_;
 }
 
+RunBackupLogEntry::RunBackupLogEntry() : LogEntry(LogEntryType::RunBackup) {
+}
+
+RunBackupLogEntry::RunBackupLogEntry(const BackupSummary &summary) : LogEntry(LogEntryType::RunBackup),
+                                                                     summary_(new BackupSummary(summary)) {
+}
+
+const BackupSummary &RunBackupLogEntry::summary() const {
+    return *summary_;
+}
+
+void RunBackupLogEntry::update(const Digest &digest) const {
+    if (!summary_)
+        THROW_EXCEPTION("Cannot update RunBackupLogEntry without a summary");
+    LogEntry::update(digest);
+    std::stringstream ss;
+    summary_->write(ss);
+    const std::string written = ss.str();
+    digest.update(written.c_str(), written.size());
+}
+
+void RunBackupLogEntry::write(std::ostream &out) const {
+    LogEntry::write(out);
+    summary_->write(out);
+}
+
+void RunBackupLogEntry::read(std::istream &in) {
+    LogEntry::read(in);
+    summary_ = std::make_unique<BackupSummary>(in);
+}
+
 BackupRepositoryLog::BackupRepositoryLog(std::filesystem::path dir)
     : dir_(std::move(dir)),
       headFile_(dir_ / HEAD_FILE),
@@ -197,6 +235,11 @@ void BackupRepositoryLog::putAddDirectoryLogEntry(const std::string &author,
                                                   const std::string &directoryId,
                                                   const std::filesystem::path &sourceDir) {
     AddDirectoryLogEntry entry{author, directoryId, sourceDir};
+    putLogEntry(entry);
+}
+
+void BackupRepositoryLog::putRunBackupLogEntry(const BackupSummary &summary) {
+    RunBackupLogEntry entry{summary};
     putLogEntry(entry);
 }
 
@@ -238,6 +281,9 @@ const LogEntry &BackupRepositoryLog::getLogEntry(const Digest::result &digest) {
                 break;
             case LogEntryType::AddDirectory:
                 readLogEntry_ = std::make_unique<AddDirectoryLogEntry>();
+                break;
+            case LogEntryType::RunBackup:
+                readLogEntry_ = std::make_unique<RunBackupLogEntry>();
                 break;
             default:
                 spdlog::warn("Unknown LogEntryType: {}", std::to_string(entryType));

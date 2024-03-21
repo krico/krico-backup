@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Digest.h"
+#include "BackupSummary.h"
 #include "gtest/gtest_prod.h"
 #include <filesystem>
 #include <ostream>
@@ -11,6 +12,7 @@ namespace krico::backup {
         NONE = 0,
         Initialized = 1,
         AddDirectory = 2,
+        RunBackup = 3,
     };
 
     namespace lengths {
@@ -114,6 +116,8 @@ namespace krico::backup {
     public:
         AddDirectoryLogEntry();
 
+        ~AddDirectoryLogEntry() override;
+
         AddDirectoryLogEntry(const std::string &author,
                              const std::string &directoryId,
                              const std::filesystem::path &sourceDir);
@@ -137,6 +141,24 @@ namespace krico::backup {
         uint16_t sourceDirLength_{0};
 
         [[nodiscard]] size_t bufferSize() const;
+    };
+
+    class RunBackupLogEntry final : public LogEntry {
+    public:
+        RunBackupLogEntry();
+
+        explicit RunBackupLogEntry(const BackupSummary &summary);
+
+        [[nodiscard]] const BackupSummary &summary() const;
+
+        void update(const Digest &digest) const override;
+
+        void write(std::ostream &out) const override;
+
+        void read(std::istream &in) override;
+
+    private:
+        std::unique_ptr<BackupSummary> summary_{nullptr};
     };
 
     //!
@@ -164,6 +186,11 @@ namespace krico::backup {
         void putAddDirectoryLogEntry(const std::string &author,
                                      const std::string &directoryId,
                                      const std::filesystem::path &sourceDir);
+
+        //!
+        //! Add an RunBackupLogEntry to the BackupRepositoryLog.
+        //!
+        void putRunBackupLogEntry(const BackupSummary &summary);
 
         //!
         //! Retrieve a given LogEntry **only valid** until the next call to getLogEntry(), getHeadLogEntry() or getPrev()

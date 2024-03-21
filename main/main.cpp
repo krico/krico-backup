@@ -1,6 +1,5 @@
 #include "krico/backup/version.h"
 #include "krico/backup/exception.h"
-#include "krico/backup/Backup.h"
 #include "krico/backup/io.h"
 #include "krico/backup/BackupDirectory.h"
 #include "krico/backup/BackupDirectoryId.h"
@@ -151,7 +150,8 @@ struct run_subcommand : subcommand {
             std::cout << "Running backup of '" << backupDirectory->id().relative_path().string() << "'"
                     << " from '" << backupDirectory->sourceDir().string() << "'" << std::endl;
             BackupRunner runner{*backupDirectory};
-            runner.run();
+            auto s = runner.run();
+            std::cout << s << std::endl;
         }
     }
 };

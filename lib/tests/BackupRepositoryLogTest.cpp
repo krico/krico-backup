@@ -6,6 +6,7 @@
 #include <chrono>
 
 using namespace std::chrono;
+namespace fs = std::filesystem;
 
 namespace krico::backup {
     TEST(BackupRepositoryLogTest, headHash) {
@@ -116,5 +117,19 @@ namespace krico::backup {
         ASSERT_EQ("John Senna", a1.author());
         ASSERT_EQ("TheBackup", a1.directoryId());
         ASSERT_EQ("/tmp/MyTheBackup", a1.sourceDir());
+    }
+
+    TEST(BackupRepositoryLogTest, putRunBackupLogEntry) {
+        const TemporaryDirectory tmp{};
+        BackupRepositoryLog log{tmp.dir()};
+        BackupSummaryBuilder builder{
+            fs::path{}, BackupDirectoryId{""}, year_month_day{1976y, July, 15d}, fs::path{"1"}
+        };
+        auto summary = builder.build();
+        log.putRunBackupLogEntry(summary);
+        const auto &e1 = log.getHeadLogEntry();
+        ASSERT_EQ(LogEntryType::RunBackup, e1.type());
+        const auto &a1 = reinterpret_cast<const RunBackupLogEntry &>(e1);
+        ASSERT_EQ(summary.startTime(), a1.summary().startTime());
     }
 }

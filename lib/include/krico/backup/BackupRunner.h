@@ -1,6 +1,7 @@
 #pragma once
 
 #include "BackupDirectory.h"
+#include "BackupSummary.h"
 #include "Digest.h"
 #include "Directory.h"
 #include <chrono>
@@ -17,9 +18,11 @@ namespace krico::backup {
         static constexpr auto CURRENT_LINK = "current";
         static constexpr auto DIGEST_DIRS = 2;
 
-        explicit BackupRunner(const BackupDirectory &directory);
+        explicit BackupRunner(const BackupDirectory &directory, const std::chrono::year_month_day &date = {});
 
-        void run(); // TODO: return Backup
+        [[nodiscard]] BackupSummary run();
+
+        [[nodiscard]] const std::filesystem::path &backupDir() const { return backupDir_; }
 
     private:
         const BackupDirectory &directory_;
@@ -30,14 +33,14 @@ namespace krico::backup {
         [[nodiscard]] static std::filesystem::path determineBackupDir(const BackupDirectory &directory,
                                                                       const std::chrono::year_month_day &date);
 
-        void backup(const Directory &dir);
+        void backup(BackupSummaryBuilder &builder, const Directory &dir);
 
-        void backup(const File &file);
+        void backup(BackupSummaryBuilder &builder, const File &file);
 
-        void backup(const Symlink &symlink);
+        void backup(BackupSummaryBuilder &builder, const Symlink &symlink);
 
-        [[nodiscard]] std::filesystem::path digest(const File &file) const;
+        [[nodiscard]] Digest::result digest(const File &file) const;
 
-        void adjust_symlinks() const;
+        void adjustSymlinks(BackupSummaryBuilder &builder) const;
     };
 }

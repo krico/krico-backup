@@ -5,13 +5,15 @@
 #include <spdlog/spdlog.h>
 #include <fstream>
 
+#include "krico/backup/BackupSummary.h"
+
 using namespace krico::backup;
 using namespace std::chrono;
 namespace fs = std::filesystem;
 
-BackupRunner::BackupRunner(const BackupDirectory &directory)
+BackupRunner::BackupRunner(const BackupDirectory &directory, const year_month_day &date)
     : directory_(directory),
-      date_(floor<days>(system_clock::now())),
+      date_(date.ok() ? date : year_month_day{floor<days>(system_clock::now())}),
       backupDir_(determineBackupDir(directory_, date_)),
       digest_(Digest::sha256()) {
     if (!is_directory(directory_.sourceDir())) {
@@ -19,15 +21,22 @@ BackupRunner::BackupRunner(const BackupDirectory &directory)
     }
 }
 
-void BackupRunner::run() {
+BackupSummary BackupRunner::run() {
     if (exists(backupDir_)) {
         THROW_EXCEPTION("Backup directory already exists '" + backupDir_.string() + "'");
     }
     spdlog::debug("Creating backup dir '{}'", backupDir_.string());
     MKDIRS(backupDir_);
+    BackupSummaryBuilder builder{
+        directory_.metaDir(),
+        directory_.id(),
+        date_,
+        backupDir_.lexically_relative(directory_.metaDir())
+    };
     const Directory source{directory_.sourceDir()};
-    backup(source);
-    adjust_symlinks();
+    backup(builder, source);
+    adjustSymlinks(builder);
+    return builder.build();
 }
 
 std::filesystem::path BackupRunner::determineBackupDir(const BackupDirectory &directory, const year_month_day &date) {
@@ -40,9 +49,8 @@ std::filesystem::path BackupRunner::determineBackupDir(const BackupDirectory &di
     THROW_EXCEPTION("Too many backups for " + std::format("{0:%Y-%m-%d}", date) + " (max 1000)");
 }
 
-void BackupRunner::backup(const Directory &dir) /* NOLINT(*-no-recursion) */ {
-    std::string prefix{};
-
+void BackupRunner::backup(BackupSummaryBuilder &builder, const Directory &dir) /* NOLINT(*-no-recursion) */ {
+    builder.addDir(dir.relative_path());
     if (const fs::path toDir = backupDir_ / dir.relative_path(); exists(toDir)) {
         if (!is_directory(toDir)) {
             THROW_EXCEPTION("Expected dir but got file '" + toDir.string() + "'");
@@ -52,22 +60,27 @@ void BackupRunner::backup(const Directory &dir) /* NOLINT(*-no-recursion) */ {
     }
     for (const auto &entry: dir) {
         if (entry.is_directory()) {
-            backup(entry.as_directory());
+            backup(builder, entry.as_directory());
         } else if (entry.is_file()) {
-            backup(entry.as_file());
+            backup(builder, entry.as_file());
         } else if (entry.is_symlink()) {
-            backup(entry.as_symlink());
+            backup(builder, entry.as_symlink());
         } else {
             THROW_NOT_IMPLEMENTED("Entry type not supported");
         }
     }
 }
 
-void BackupRunner::backup(const File &file) {
+void BackupRunner::backup(BackupSummaryBuilder &builder, const File &file) {
     const fs::path toFile = backupDir_ / file.relative_path();
-    const fs::path digestFile = digest(file);
+    const auto digestResult = digest(file);
+    const fs::path digestFile = directory_.repository().hardLinksDir() / digestResult.path(DIGEST_DIRS);
 
-    if (!exists(digestFile)) {
+    if (exists(digestFile)) {
+        builder.addHardLinkedFile(file.relative_path(), digestResult);
+    } else {
+        builder.addCopiedFile(file.relative_path(), digestResult);
+
         if (const fs::path digestDir = digestFile.parent_path(); !is_directory(digestDir)) {
             MKDIRS(digestDir);
         }
@@ -79,9 +92,10 @@ void BackupRunner::backup(const File &file) {
     CREATE_HARD_LINK(digestFile, toFile);
 }
 
-void BackupRunner::backup(const Symlink &symlink) {
+void BackupRunner::backup(BackupSummaryBuilder &builder, const Symlink &symlink) {
     const fs::path link = backupDir_ / symlink.relative_path();
     const fs::path &target = symlink.relative_target();
+    builder.addSymlink(symlink.relative_path(), target);
     if (symlink.is_target_dir()) {
         CREATE_DIRECTORY_SYMLINK(target, link);
     } else {
@@ -89,7 +103,7 @@ void BackupRunner::backup(const Symlink &symlink) {
     }
 }
 
-std::filesystem::path BackupRunner::digest(const File &file) const {
+Digest::result BackupRunner::digest(const File &file) const {
     constexpr std::streamsize buffer_size = 8192;
     digest_.reset();
     char buffer[buffer_size];
@@ -105,18 +119,18 @@ std::filesystem::path BackupRunner::digest(const File &file) const {
     }
     if (in.eof()) {
         digest_.update(buffer, in.gcount());
-        const auto d = digest_.digest();
-        return directory_.repository().hardLinksDir() / d.path(DIGEST_DIRS);
+        return digest_.digest();
     }
     THROW_EXCEPTION("Problem reading '" + file.absolute_path().string() + "'");
 }
 
-void BackupRunner::adjust_symlinks() const {
+void BackupRunner::adjustSymlinks(BackupSummaryBuilder &builder) const {
     const fs::path previous{directory_.dir() / PREVIOUS_LINK};
     if (const auto previous_status = SYMLINK_STATUS(previous); previous_status.type() == fs::file_type::not_found) {
         spdlog::debug("not found [previous={}]", previous.string());
     } else if (previous_status.type() == fs::file_type::symlink) {
         spdlog::debug("remove [previous={}]", previous.string());
+        builder.addPreviousSymlink(relative(previous, directory_.metaDir()));
         REMOVE(previous);
     } else {
         THROW_EXCEPTION("Previous '" + previous.string() + "' is not a symlink");
@@ -126,6 +140,7 @@ void BackupRunner::adjust_symlinks() const {
         spdlog::debug("not found [current={}]", current.string());
     } else if (current_status.type() == fs::file_type::symlink) {
         spdlog::debug("rename [current={}][previous={}]", current.string(), previous.string());
+        builder.addCurrentSymlink(relative(current, directory_.metaDir()));
         RENAME_FILE(current, previous);
     } else {
         THROW_EXCEPTION("Current '" + current.string() + "' is not a symlink");

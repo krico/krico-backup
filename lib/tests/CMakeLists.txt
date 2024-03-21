@@ -15,7 +15,6 @@ add_executable(krico_backup_tests
         TemporaryDirectoryTest.cpp
         DirectoryTest.cpp
         DigestTest.cpp
-        BackupTest.cpp
         Environment.cpp
         io_test.cpp
         FileLockTest.cpp

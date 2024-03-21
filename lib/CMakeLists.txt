@@ -14,8 +14,8 @@ add_library(libKricoBackup
         include/krico/backup/TemporaryDirectory.h
         include/krico/backup/Directory.h
         include/krico/backup/Digest.h
-        include/krico/backup/Backup.h
         include/krico/backup/io.h
+        include/krico/backup/uint8_utils.h
         include/krico/backup/FileLock.h
         include/krico/backup/BackupConfig.h
         include/krico/backup/BackupRepository.h
@@ -23,12 +23,12 @@ add_library(libKricoBackup
         include/krico/backup/BackupDirectory.h
         include/krico/backup/BackupRunner.h
         include/krico/backup/BackupRepositoryLog.h
+        include/krico/backup/BackupSummary.h
 
         src/TemporaryFile.cpp
         src/TemporaryDirectory.cpp
         src/Directory.cpp
         src/Digest.cpp
-        src/Backup.cpp
         src/io.cpp
         src/FileLock.cpp
         src/BackupConfig.cpp
@@ -37,7 +37,7 @@ add_library(libKricoBackup
         src/BackupDirectory.cpp
         src/BackupRunner.cpp
         src/BackupRepositoryLog.cpp
-        include/krico/backup/uint8_utils.h
+        src/BackupSummary.cpp
 )
 
 target_include_directories(libKricoBackup PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
