@@ -11,6 +11,7 @@
 #include <iostream>
 
 using namespace krico::backup;
+using namespace std::chrono;
 namespace fs = std::filesystem;
 
 struct base_options {
@@ -155,6 +156,68 @@ struct run_subcommand : subcommand {
     }
 };
 
+struct log_subcommand : subcommand {
+    log_subcommand(CLI::App &app, const base_options &baseOptions)
+        : subcommand(app, baseOptions, "log", "Print the log of what happened in the backup repository") {
+        subCommand_->callback([&] { this->log(); });
+    }
+
+    void log() const {
+        static constexpr auto WIDTH = 8;
+        BackupRepository repo{baseOptions_.repoPath_};
+        auto &log = repo.repositoryLog();
+        if (log.head().is_zero()) {
+            // Should never happen (since init creates an entry)
+            std::cout << "No log entries in this repository" << std::endl;
+            return;
+        }
+        auto prev = log.head();
+        do {
+            const LogEntry &headerEntry = log.getLogEntry(prev);
+            const auto type = headerEntry.type();
+            std::cout << std::left << std::setw(5) << std::setfill(' ') << type << prev.str() << std::endl;
+            system_clock::time_point ts{duration_cast<system_clock::duration>(nanoseconds(headerEntry.ts()))};
+            const auto tt = system_clock::to_time_t(ts);
+
+            std::cout << std::left << std::setw(WIDTH) << "Date:" << std::ctime(&tt);
+            switch (type) {
+                case InitLogEntry::log_entry_type: {
+                    const auto &entry = log_entry_cast<InitLogEntry>(headerEntry);
+                    std::cout << std::left << std::setw(WIDTH) << "Author:" << entry.author() << std::endl;
+                }
+                break;
+                case AddDirectoryLogEntry::log_entry_type: {
+                    const auto &entry = log_entry_cast<AddDirectoryLogEntry>(headerEntry);
+                    std::cout << std::left << std::setw(WIDTH) << "Author:" << entry.author() << std::endl;
+                    std::cout << std::endl;
+                    std::cout << "  Added \"" << entry.directoryId() << "\""
+                            << " as backup of \"" << entry.sourceDir() << "\"" << std::endl;
+                }
+                break;
+                case RunBackupLogEntry::log_entry_type: {
+                    const auto &entry = log_entry_cast<RunBackupLogEntry>(headerEntry);
+                    std::cout << std::left << std::setw(WIDTH) << "Author:" << entry.author() << std::endl;
+                    std::cout << std::endl;
+                    const auto &summary = entry.summary();
+                    const auto total = summary.numCopiedFiles()
+                                       + summary.numHardLinkedFiles()
+                                       + summary.numSymlinks();
+                    const auto elapsed = duration_cast<nanoseconds>(summary.endTime() - summary.startTime());
+                    std::cout << "  Backed up " << summary.directoryId().relative_path()
+                            << " (" << total << " entries)"
+                            << " in " << std::format("{0:%T}", elapsed) << std::endl;
+                }
+                break;
+                default:
+                    std::cout << "UNKNOWN LOG ENTRY TYPE" << std::endl;
+                    break;
+            }
+            prev = headerEntry.prev();
+            if (!prev.is_zero()) std::cout << std::endl;
+        } while (!prev.is_zero());
+    }
+};
+
 class krico_backup {
 public:
     krico_backup() {
@@ -190,6 +253,7 @@ private:
     add_subcommand add_{app_, baseOptions_};
     list_subcommand list_{app_, baseOptions_};
     run_subcommand run_{app_, baseOptions_};
+    log_subcommand log_{app_, baseOptions_};
     help_subcommand help_{app_, baseOptions_};
 };
 

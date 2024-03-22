@@ -142,7 +142,7 @@ std::vector<const BackupDirectory *> BackupRepository::list_directories() {
 BackupSummary BackupRepository::run_backup(const BackupDirectory &directory) {
     BackupRunner runner{directory};
     auto s = runner.run();
-    repositoryLog().putRunBackupLogEntry(s);
+    repositoryLog().putRunBackupLogEntry(get_username(), s);
     return s;
 }
 

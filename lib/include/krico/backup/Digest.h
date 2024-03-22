@@ -57,7 +57,24 @@ namespace krico::backup {
             //!
             [[nodiscard]] std::filesystem::path path(uint8_t dirs) const;
 
-            bool operator==(const result &) const;
+            [[nodiscard]] constexpr bool is_zero() const {
+                for (size_t i = 0; i < len_; ++i) {
+                    if (md_[i] != 0) return false;
+                }
+                return true;
+            }
+
+            constexpr bool operator==(const result &rhs) const {
+                if (len_ != rhs.len_) return false;
+                for (size_t i = 0; i < len_; ++i) {
+                    if (md_[i] != rhs.md_[i]) return false;
+                }
+                return true;
+            }
+
+            constexpr bool operator!=(const result &rhs) const {
+                return !(*this == rhs);
+            }
         };
 
         static constexpr result SHA1_ZERO{.len_ = DigestLength::SHA1};

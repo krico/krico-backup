@@ -68,10 +68,10 @@ void LogEntry::read(std::istream &in) {
     }
 }
 
-InitLogEntry::InitLogEntry() : LogEntry(LogEntryType::Initialized) {
+InitLogEntry::InitLogEntry() : LogEntry(log_entry_type) {
 }
 
-InitLogEntry::InitLogEntry(std::string author) : LogEntry(LogEntryType::Initialized), author_(std::move(author)) {
+InitLogEntry::InitLogEntry(std::string author) : LogEntry(log_entry_type), author_(std::move(author)) {
 }
 
 void InitLogEntry::update(const Digest &digest) const {
@@ -89,7 +89,7 @@ void InitLogEntry::read(std::istream &in) {
     author_ = std::string((std::istreambuf_iterator(in)), std::istreambuf_iterator<char>());
 }
 
-AddDirectoryLogEntry::AddDirectoryLogEntry() : LogEntry(LogEntryType::AddDirectory) {
+AddDirectoryLogEntry::AddDirectoryLogEntry() : LogEntry(log_entry_type) {
 }
 
 AddDirectoryLogEntry::~AddDirectoryLogEntry() {
@@ -102,7 +102,7 @@ AddDirectoryLogEntry::~AddDirectoryLogEntry() {
 AddDirectoryLogEntry::AddDirectoryLogEntry(const std::string &author,
                                            const std::string &directoryId,
                                            const std::filesystem::path &sourceDir)
-    : LogEntry(LogEntryType::AddDirectory),
+    : LogEntry(log_entry_type),
       authorLength_(author.length()),
       directoryIdLength_(directoryId.length()) {
     const auto sourceDirStr = sourceDir.string();
@@ -188,11 +188,16 @@ size_t AddDirectoryLogEntry::bufferSize() const {
     return lengths::AddDirectoryLogEntry::Lengths + authorLength_ + directoryIdLength_ + sourceDirLength_;
 }
 
-RunBackupLogEntry::RunBackupLogEntry() : LogEntry(LogEntryType::RunBackup) {
+RunBackupLogEntry::RunBackupLogEntry() : LogEntry(log_entry_type) {
 }
 
-RunBackupLogEntry::RunBackupLogEntry(const BackupSummary &summary) : LogEntry(LogEntryType::RunBackup),
-                                                                     summary_(new BackupSummary(summary)) {
+RunBackupLogEntry::RunBackupLogEntry(std::string author, const BackupSummary &summary)
+    : LogEntry(log_entry_type), author_(std::move(author)),
+      summary_(new BackupSummary(summary)) {
+}
+
+std::string_view RunBackupLogEntry::author() const {
+    return author_;
 }
 
 const BackupSummary &RunBackupLogEntry::summary() const {
@@ -203,6 +208,7 @@ void RunBackupLogEntry::update(const Digest &digest) const {
     if (!summary_)
         THROW_EXCEPTION("Cannot update RunBackupLogEntry without a summary");
     LogEntry::update(digest);
+    digest.update(author_.c_str(), author_.size());
     std::stringstream ss;
     summary_->write(ss);
     const std::string written = ss.str();
@@ -211,11 +217,15 @@ void RunBackupLogEntry::update(const Digest &digest) const {
 
 void RunBackupLogEntry::write(std::ostream &out) const {
     LogEntry::write(out);
+    out << author_ << std::endl;
     summary_->write(out);
 }
 
 void RunBackupLogEntry::read(std::istream &in) {
     LogEntry::read(in);
+    if (!std::getline(in, author_)) {
+        THROW_EXCEPTION("Failed to read author");
+    }
     summary_ = std::make_unique<BackupSummary>(in);
 }
 
@@ -238,8 +248,8 @@ void BackupRepositoryLog::putAddDirectoryLogEntry(const std::string &author,
     putLogEntry(entry);
 }
 
-void BackupRepositoryLog::putRunBackupLogEntry(const BackupSummary &summary) {
-    RunBackupLogEntry entry{summary};
+void BackupRepositoryLog::putRunBackupLogEntry(const std::string &author, const BackupSummary &summary) {
+    RunBackupLogEntry entry{author, summary};
     putLogEntry(entry);
 }
 
@@ -276,13 +286,13 @@ const LogEntry &BackupRepositoryLog::getLogEntry(const Digest::result &digest) {
         }
         auto type = static_cast<LogEntryType>(entryType);
         switch (type) {
-            case LogEntryType::Initialized:
+            case InitLogEntry::log_entry_type:
                 readLogEntry_ = std::make_unique<InitLogEntry>();
                 break;
-            case LogEntryType::AddDirectory:
+            case AddDirectoryLogEntry::log_entry_type:
                 readLogEntry_ = std::make_unique<AddDirectoryLogEntry>();
                 break;
-            case LogEntryType::RunBackup:
+            case RunBackupLogEntry::log_entry_type:
                 readLogEntry_ = std::make_unique<RunBackupLogEntry>();
                 break;
             default:

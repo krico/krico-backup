@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <ostream>
 #include <istream>
+#include <cassert>
 
 namespace krico::backup {
     enum class LogEntryType : uint8_t {
@@ -14,6 +15,22 @@ namespace krico::backup {
         AddDirectory = 2,
         RunBackup = 3,
     };
+
+    inline std::ostream &operator<<(std::ostream &out, const LogEntryType &type) {
+        // Try to keep this to max 4 chars (or change setw in command line)
+        switch (type) {
+            case LogEntryType::NONE:
+                return out << "none";
+            case LogEntryType::Initialized:
+                return out << "init";
+            case LogEntryType::AddDirectory:
+                return out << "add";
+            case LogEntryType::RunBackup:
+                return out << "run";
+            default:
+                return out << "UNKN";
+        }
+    }
 
     namespace lengths {
         namespace LogEntry {
@@ -94,8 +111,17 @@ namespace krico::backup {
         FRIEND_TEST(BackupRepositoryLogTest, addLogEntry);
     };
 
+    template<typename T>
+    const T &log_entry_cast(const LogEntry &entry) {
+        assert(entry.type() == T::log_entry_type); // Dev mistake...
+        return static_cast<const T &>(entry);
+    }
+
+
     class InitLogEntry final : public LogEntry {
     public:
+        static constexpr auto log_entry_type = LogEntryType::Initialized;
+
         InitLogEntry();
 
         explicit InitLogEntry(std::string author);
@@ -114,6 +140,8 @@ namespace krico::backup {
 
     class AddDirectoryLogEntry final : public LogEntry {
     public:
+        static constexpr auto log_entry_type = LogEntryType::AddDirectory;
+
         AddDirectoryLogEntry();
 
         ~AddDirectoryLogEntry() override;
@@ -145,9 +173,13 @@ namespace krico::backup {
 
     class RunBackupLogEntry final : public LogEntry {
     public:
+        static constexpr auto log_entry_type = LogEntryType::RunBackup;
+
         RunBackupLogEntry();
 
-        explicit RunBackupLogEntry(const BackupSummary &summary);
+        explicit RunBackupLogEntry(std::string author, const BackupSummary &summary);
+
+        [[nodiscard]] std::string_view author() const;
 
         [[nodiscard]] const BackupSummary &summary() const;
 
@@ -158,6 +190,7 @@ namespace krico::backup {
         void read(std::istream &in) override;
 
     private:
+        std::string author_{};
         std::unique_ptr<BackupSummary> summary_{nullptr};
     };
 
@@ -190,7 +223,7 @@ namespace krico::backup {
         //!
         //! Add an RunBackupLogEntry to the BackupRepositoryLog.
         //!
-        void putRunBackupLogEntry(const BackupSummary &summary);
+        void putRunBackupLogEntry(const std::string &author, const BackupSummary &summary);
 
         //!
         //! Retrieve a given LogEntry **only valid** until the next call to getLogEntry(), getHeadLogEntry() or getPrev()

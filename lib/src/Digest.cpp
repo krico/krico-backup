@@ -9,6 +9,16 @@
 using namespace krico::backup;
 namespace fs = std::filesystem;
 
+static_assert(Digest::SHA1_ZERO.is_zero());
+static_assert(Digest::SHA256_ZERO.is_zero());
+static_assert(Digest::MD5_ZERO.is_zero());
+static_assert(Digest::SHA1_ZERO != Digest::SHA256_ZERO);
+static_assert(Digest::SHA1_ZERO != Digest::MD5_ZERO);
+static_assert(Digest::SHA256_ZERO != Digest::SHA1_ZERO);
+static_assert(Digest::SHA256_ZERO != Digest::MD5_ZERO);
+static_assert(Digest::MD5_ZERO != Digest::SHA1_ZERO);
+static_assert(Digest::MD5_ZERO != Digest::SHA256_ZERO);
+
 namespace {
     struct openssl_error final : exception {
         explicit openssl_error(const std::string &msg): exception(build_error_message(msg)) {
@@ -147,12 +157,4 @@ fs::path Digest::result::path(const uint8_t dirs) const {
         if (i < dirs) ss << fs::path::preferred_separator;
     }
     return ss.str();
-}
-
-bool Digest::result::operator==(const result &rhs) const {
-    if (len_ != rhs.len_) return false;
-    for (size_t i = 0; i < len_; ++i) {
-        if (md_[i] != rhs.md_[i]) return false;
-    }
-    return true;
 }

@@ -128,10 +128,11 @@ namespace krico::backup {
             directoryMetaDir, BackupDirectoryId{""}, year_month_day{1976y, July, 15d}, fs::path{"1"}
         };
         auto summary = builder.build();
-        log.putRunBackupLogEntry(summary);
+        log.putRunBackupLogEntry("John Doe", summary);
         const auto &e1 = log.getHeadLogEntry();
         ASSERT_EQ(LogEntryType::RunBackup, e1.type());
         const auto &a1 = reinterpret_cast<const RunBackupLogEntry &>(e1);
+        ASSERT_EQ("John Doe", a1.author());
         ASSERT_EQ(summary.startTime(), a1.summary().startTime());
         auto expectedFile = builder.summaryFile_;
         ASSERT_EQ(expectedFile, summary.summaryFile(directoryMetaDir));

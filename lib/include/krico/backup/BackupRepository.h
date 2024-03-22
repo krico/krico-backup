@@ -72,6 +72,8 @@ namespace krico::backup {
 
         BackupSummary run_backup(const BackupDirectory &directory);
 
+        [[nodiscard]] BackupRepositoryLog &repositoryLog();
+
     private:
         const std::filesystem::path dir_;
         const std::filesystem::path metaDir_;
@@ -85,7 +87,5 @@ namespace krico::backup {
         std::unique_ptr<BackupRepositoryLog> repositoryLog_{nullptr};
 
         std::vector<std::unique_ptr<BackupDirectory> > &loadDirectories();
-
-        BackupRepositoryLog &repositoryLog();
     };
 }
