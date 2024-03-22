@@ -2,6 +2,8 @@
 #include "krico/backup/BackupDirectory.h"
 #include "krico/backup/exception.h"
 #include "krico/backup/io.h"
+#include "krico/backup/os.h"
+#include "krico/backup/BackupRunner.h"
 #include <spdlog/spdlog.h>
 
 
@@ -58,6 +60,7 @@ BackupRepository BackupRepository::initialize(const std::filesystem::path &dir) 
         MKDIR(repo.hardLinksDir());
     }
     repo.config().set(METADATA_SECTION, "", "init-ts", std::format("{}", system_clock::now()));
+    repo.repositoryLog().putInitLogEntry(get_username());
     return repo;
 }
 
@@ -120,6 +123,9 @@ const BackupDirectory &BackupRepository::add_directory(const fs::path &directory
     backupDirectory->configure(sourceDir);
     auto &ret = *directories.emplace_back(std::move(backupDirectory));
     std::ranges::sort(directories, [](auto &d1, auto &d2) { return d1->id().str() < d2->id().str(); });
+
+    repositoryLog().putAddDirectoryLogEntry(get_username(), ret.id().str(), sourceDir);
+
     return ret;
 }
 
@@ -131,6 +137,13 @@ std::vector<const BackupDirectory *> BackupRepository::list_directories() {
         ret.emplace_back(d.get());
     }
     return ret;
+}
+
+BackupSummary BackupRepository::run_backup(const BackupDirectory &directory) {
+    BackupRunner runner{directory};
+    auto s = runner.run();
+    repositoryLog().putRunBackupLogEntry(s);
+    return s;
 }
 
 std::vector<std::unique_ptr<BackupDirectory> > &BackupRepository::loadDirectories() {
@@ -148,4 +161,11 @@ std::vector<std::unique_ptr<BackupDirectory> > &BackupRepository::loadDirectorie
 
     directoriesLoaded_ = true;
     return directories_;
+}
+
+BackupRepositoryLog &BackupRepository::repositoryLog() {
+    if (!repositoryLog_) {
+        repositoryLog_ = std::make_unique<BackupRepositoryLog>(logDir());
+    }
+    return *repositoryLog_;
 }

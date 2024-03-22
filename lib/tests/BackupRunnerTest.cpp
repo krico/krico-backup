@@ -56,6 +56,7 @@ TEST_F(BackupRunnerTest, run) {
     BackupSummary read{ss};
 
     ASSERT_EQ(summary.directoryId().str(), read.directoryId().str());
+    ASSERT_EQ(summary.directoryId().id_path(), read.directoryId().id_path());
     ASSERT_EQ(summary.date(), read.date());
     ASSERT_EQ(summary.backupId(), read.backupId());
     ASSERT_EQ(summary.startTime(), read.startTime());
@@ -64,7 +65,6 @@ TEST_F(BackupRunnerTest, run) {
     ASSERT_EQ(summary.numCopiedFiles(), read.numCopiedFiles());
     ASSERT_EQ(summary.numHardLinkedFiles(), read.numHardLinkedFiles());
     ASSERT_EQ(summary.numSymlinks(), read.numSymlinks());
-    ASSERT_EQ(summary.summaryFile(), read.summaryFile());
     ASSERT_EQ(summary.previousTarget(), read.previousTarget());
     ASSERT_EQ(summary.currentTarget(), read.currentTarget());
 

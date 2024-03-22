@@ -5,6 +5,7 @@
 #include <istream>
 #include <chrono>
 #include <regex>
+#include <utility>
 
 using namespace krico::backup;
 using namespace std::chrono;
@@ -17,7 +18,8 @@ BackupSummaryBuilder::BackupSummaryBuilder(const fs::path &metaDir,
     : directoryId_(std::move(directoryId)),
       date_(date),
       backupId_(std::move(backupId)),
-      summaryFile_(metaDir / backupId_.parent_path() / (backupId_.filename().string() + ".summary")),
+      summaryFile_(
+          metaDir / backupId_.parent_path() / (backupId_.filename().string() + BackupSummary::SUMMARY_FILE_SUFFIX)),
       tmpFile_(summaryFile_.parent_path(), summaryFile_.filename().string()),
       out_(tmpFile_.file()),
       digest_(Digest::sha1()),
@@ -78,7 +80,7 @@ BackupSummary BackupSummaryBuilder::build() {
     return BackupSummary{*this};
 }
 
-BackupSummary::BackupSummary(BackupSummaryBuilder &builder)
+BackupSummary::BackupSummary(const BackupSummaryBuilder &builder)
     : directoryId_(builder.directoryId_),
       date_(builder.date_),
       backupId_(builder.backupId_),
@@ -88,7 +90,6 @@ BackupSummary::BackupSummary(BackupSummaryBuilder &builder)
       numCopiedFiles_(builder.numCopiedFiles_),
       numHardLinkedFiles_(builder.numHardLinkedFiles_),
       numSymlinks_(builder.numSymlinks_),
-      summaryFile_(builder.summaryFile_),
       previousTarget_(builder.previousTarget_),
       currentTarget_(builder.currentTarget_) {
 }
@@ -151,9 +152,12 @@ BackupSummary::BackupSummary(std::istream &in)
       numCopiedFiles_(one_line_uint32(in)),
       numHardLinkedFiles_(one_line_uint32(in)),
       numSymlinks_(one_line_uint32(in)),
-      summaryFile_(one_line(in)),
       previousTarget_(one_line(in)),
       currentTarget_(one_line(in)) {
+}
+
+std::filesystem::path BackupSummary::summaryFile(const std::filesystem::path &directoryMetaDir) const {
+    return directoryMetaDir / backupId_.parent_path() / (backupId_.filename().string() + SUMMARY_FILE_SUFFIX);
 }
 
 void BackupSummary::write(std::ostream &out) const {
@@ -166,7 +170,6 @@ void BackupSummary::write(std::ostream &out) const {
             << numCopiedFiles_ << std::endl
             << numHardLinkedFiles_ << std::endl
             << numSymlinks_ << std::endl
-            << summaryFile_.string() << std::endl
             << previousTarget_.string() << std::endl
             << currentTarget_.string() << std::endl;
 }

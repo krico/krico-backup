@@ -3,6 +3,7 @@
 #include "Digest.h"
 #include "BackupDirectoryId.h"
 #include "TemporaryFile.h"
+#include "gtest/gtest_prod.h"
 #include <filesystem>
 #include <chrono>
 #include <ostream>
@@ -15,8 +16,9 @@ namespace krico::backup {
     class BackupSummary {
     public:
         using ptr = std::unique_ptr<BackupSummary>;
+        static constexpr auto SUMMARY_FILE_SUFFIX = ".summary";
 
-        explicit BackupSummary(BackupSummaryBuilder &builder);
+        explicit BackupSummary(const BackupSummaryBuilder &builder);
 
         explicit BackupSummary(std::istream &in);
 
@@ -29,9 +31,13 @@ namespace krico::backup {
         [[nodiscard]] const uint32_t &numCopiedFiles() const { return numCopiedFiles_; }
         [[nodiscard]] const uint32_t &numHardLinkedFiles() const { return numHardLinkedFiles_; }
         [[nodiscard]] const uint32_t &numSymlinks() const { return numSymlinks_; }
-        [[nodiscard]] const std::filesystem::path &summaryFile() const { return summaryFile_; }
         [[nodiscard]] const std::filesystem::path &previousTarget() const { return previousTarget_; }
         [[nodiscard]] const std::filesystem::path &currentTarget() const { return currentTarget_; }
+
+        //!
+        //! Reconstruct the summary file for this BackupSummary given a `directoryMetaDir`
+        //!
+        [[nodiscard]] std::filesystem::path summaryFile(const std::filesystem::path &directoryMetaDir) const;
 
         void write(std::ostream &out) const;
 
@@ -45,7 +51,6 @@ namespace krico::backup {
         uint32_t numCopiedFiles_{0};
         uint32_t numHardLinkedFiles_{0};
         uint32_t numSymlinks_{0};
-        std::filesystem::path summaryFile_;
         std::filesystem::path previousTarget_;
         std::filesystem::path currentTarget_;
 
@@ -108,5 +113,6 @@ namespace krico::backup {
         std::filesystem::path currentTarget_{};
 
         friend class BackupSummary;
+        FRIEND_TEST(BackupRepositoryLogTest, putRunBackupLogEntry);
     };
 }

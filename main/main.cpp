@@ -149,9 +149,8 @@ struct run_subcommand : subcommand {
         for (BackupRepository repo{baseOptions_.repoPath_}; const auto *backupDirectory: repo.list_directories()) {
             std::cout << "Running backup of '" << backupDirectory->id().relative_path().string() << "'"
                     << " from '" << backupDirectory->sourceDir().string() << "'" << std::endl;
-            BackupRunner runner{*backupDirectory};
-            auto s = runner.run();
-            std::cout << s << std::endl;
+            auto summary = repo.run_backup(*backupDirectory);
+            std::cout << summary << std::endl;
         }
     }
 };

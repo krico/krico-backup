@@ -3,6 +3,7 @@
 #include "FileLock.h"
 #include "BackupConfig.h"
 #include "BackupDirectory.h"
+#include "BackupRepositoryLog.h"
 #include <filesystem>
 #include <vector>
 
@@ -69,6 +70,8 @@ namespace krico::backup {
 
         std::vector<const BackupDirectory *> list_directories();
 
+        BackupSummary run_backup(const BackupDirectory &directory);
+
     private:
         const std::filesystem::path dir_;
         const std::filesystem::path metaDir_;
@@ -79,7 +82,10 @@ namespace krico::backup {
         const std::filesystem::path hardLinksDir_;
         bool directoriesLoaded_{false};
         std::vector<std::unique_ptr<BackupDirectory> > directories_{};
+        std::unique_ptr<BackupRepositoryLog> repositoryLog_{nullptr};
 
         std::vector<std::unique_ptr<BackupDirectory> > &loadDirectories();
+
+        BackupRepositoryLog &repositoryLog();
     };
 }

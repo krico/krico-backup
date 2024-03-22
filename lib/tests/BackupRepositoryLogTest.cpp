@@ -122,8 +122,10 @@ namespace krico::backup {
     TEST(BackupRepositoryLogTest, putRunBackupLogEntry) {
         const TemporaryDirectory tmp{};
         BackupRepositoryLog log{tmp.dir()};
+        fs::path directoryMetaDir{tmp.dir() / "dirMeta"};
+        fs::create_directory(directoryMetaDir);
         BackupSummaryBuilder builder{
-            fs::path{}, BackupDirectoryId{""}, year_month_day{1976y, July, 15d}, fs::path{"1"}
+            directoryMetaDir, BackupDirectoryId{""}, year_month_day{1976y, July, 15d}, fs::path{"1"}
         };
         auto summary = builder.build();
         log.putRunBackupLogEntry(summary);
@@ -131,5 +133,7 @@ namespace krico::backup {
         ASSERT_EQ(LogEntryType::RunBackup, e1.type());
         const auto &a1 = reinterpret_cast<const RunBackupLogEntry &>(e1);
         ASSERT_EQ(summary.startTime(), a1.summary().startTime());
+        auto expectedFile = builder.summaryFile_;
+        ASSERT_EQ(expectedFile, summary.summaryFile(directoryMetaDir));
     }
 }
