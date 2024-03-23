@@ -33,6 +33,7 @@ namespace krico::backup {
         [[nodiscard]] const uint32_t &numSymlinks() const { return numSymlinks_; }
         [[nodiscard]] const std::filesystem::path &previousTarget() const { return previousTarget_; }
         [[nodiscard]] const std::filesystem::path &currentTarget() const { return currentTarget_; }
+        [[nodiscard]] const Digest::result &checksum() const { return checksum_; }
 
         //!
         //! Reconstruct the summary file for this BackupSummary given a `directoryMetaDir`
@@ -53,23 +54,26 @@ namespace krico::backup {
         uint32_t numSymlinks_{0};
         std::filesystem::path previousTarget_;
         std::filesystem::path currentTarget_;
+        Digest::result checksum_{};
 
         friend std::ostream &operator<<(std::ostream &out, const BackupSummary &summary) {
             using namespace std::chrono;
+            static constexpr auto WIDTH = 2 * DigestLength::SHA1;
             const auto elapsed = duration_cast<nanoseconds>(summary.endTime_ - summary.startTime_);
             return out
-                   << "DirectoryId  : " << std::setw(26) << summary.directoryId_.str() << std::endl
-                   << "Date         : " << std::setw(26) << summary.date_ << std::endl
-                   << "BackupId     : " << std::setw(26) << summary.backupId_.string() << std::endl
-                   << "Start time   : " << std::setw(26) << summary.startTime_ << std::endl
-                   << "End time     : " << std::setw(26) << summary.endTime_ << std::endl
-                   << "Directories  : " << std::setw(26) << summary.numDirectories_ << std::endl
-                   << "Copied files : " << std::setw(26) << summary.numCopiedFiles_ << std::endl
-                   << "Hardlinks    : " << std::setw(26) << summary.numHardLinkedFiles_ << std::endl
-                   << "Symlinks     : " << std::setw(26) << summary.numSymlinks_ << std::endl
-                   << "Unliked bkp  : " << std::setw(26) << summary.previousTarget_.string() << std::endl
-                   << "Previous bkp : " << std::setw(26) << summary.currentTarget_.string() << std::endl
-                   << "Elapsed      : " << std::setw(26) << std::format("{0:%T}", elapsed);
+                   << "DirectoryId  : " << std::setw(WIDTH) << summary.directoryId_.str() << std::endl
+                   << "Date         : " << std::setw(WIDTH) << summary.date_ << std::endl
+                   << "BackupId     : " << std::setw(WIDTH) << summary.backupId_.string() << std::endl
+                   << "Start time   : " << std::setw(WIDTH) << summary.startTime_ << std::endl
+                   << "End time     : " << std::setw(WIDTH) << summary.endTime_ << std::endl
+                   << "Directories  : " << std::setw(WIDTH) << summary.numDirectories_ << std::endl
+                   << "Copied files : " << std::setw(WIDTH) << summary.numCopiedFiles_ << std::endl
+                   << "Hardlinks    : " << std::setw(WIDTH) << summary.numHardLinkedFiles_ << std::endl
+                   << "Symlinks     : " << std::setw(WIDTH) << summary.numSymlinks_ << std::endl
+                   << "Unliked bkp  : " << std::setw(WIDTH) << summary.previousTarget_.string() << std::endl
+                   << "Previous bkp : " << std::setw(WIDTH) << summary.currentTarget_.string() << std::endl
+                   << "Checksum     : " << std::setw(WIDTH) << summary.checksum_.str() << std::endl
+                   << "Elapsed      : " << std::setw(WIDTH) << std::format("{0:%T}", elapsed);
         }
     };
 
@@ -111,6 +115,7 @@ namespace krico::backup {
         uint32_t numSymlinks_{0};
         std::filesystem::path previousTarget_{};
         std::filesystem::path currentTarget_{};
+        Digest::result checksum_{};
 
         friend class BackupSummary;
         FRIEND_TEST(BackupRepositoryLogTest, putRunBackupLogEntry);

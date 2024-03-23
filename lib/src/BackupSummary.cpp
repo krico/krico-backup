@@ -73,8 +73,9 @@ void BackupSummaryBuilder::addCurrentSymlink(const std::filesystem::path &curren
 
 BackupSummary BackupSummaryBuilder::build() {
     endTime_ = system_clock::now();
+    checksum_ = digest_.digest();
     // Write the final digest
-    out_ << "S " << digest_.digest().str() << std::endl;
+    out_ << "S " << checksum_.str() << std::endl;
     out_.close();
     RENAME_FILE(tmpFile_.file(), summaryFile_);
     return BackupSummary{*this};
@@ -91,7 +92,8 @@ BackupSummary::BackupSummary(const BackupSummaryBuilder &builder)
       numHardLinkedFiles_(builder.numHardLinkedFiles_),
       numSymlinks_(builder.numSymlinks_),
       previousTarget_(builder.previousTarget_),
-      currentTarget_(builder.currentTarget_) {
+      currentTarget_(builder.currentTarget_),
+      checksum_(builder.checksum_) {
 }
 
 namespace {
@@ -128,7 +130,7 @@ namespace {
         if (!std::getline(in, line)) {
             THROW_EXCEPTION("Failed to read time point line");
         }
-        uint64_t nanos = std::stoull(line);
+        const uint64_t nanos = std::stoull(line);
         system_clock::time_point tp{duration_cast<system_clock::duration>(nanoseconds(nanos))};
         return tp;
     }
@@ -139,6 +141,16 @@ namespace {
             THROW_EXCEPTION("Failed to read uint32 line");
         }
         return std::stoul(line);
+    }
+
+    Digest::result one_line_digest(std::istream &in) {
+        std::string line;
+        if (!std::getline(in, line)) {
+            THROW_EXCEPTION("Failed to read Digest::result line");
+        }
+        Digest::result ret{};
+        Digest::result::parse(ret, line);
+        return ret;
     }
 }
 
@@ -153,7 +165,8 @@ BackupSummary::BackupSummary(std::istream &in)
       numHardLinkedFiles_(one_line_uint32(in)),
       numSymlinks_(one_line_uint32(in)),
       previousTarget_(one_line(in)),
-      currentTarget_(one_line(in)) {
+      currentTarget_(one_line(in)),
+      checksum_(one_line_digest(in)) {
 }
 
 std::filesystem::path BackupSummary::summaryFile(const std::filesystem::path &directoryMetaDir) const {
@@ -171,5 +184,6 @@ void BackupSummary::write(std::ostream &out) const {
             << numHardLinkedFiles_ << std::endl
             << numSymlinks_ << std::endl
             << previousTarget_.string() << std::endl
-            << currentTarget_.string() << std::endl;
+            << currentTarget_.string() << std::endl
+            << checksum_.str() << std::endl;
 }

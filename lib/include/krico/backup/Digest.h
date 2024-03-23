@@ -24,6 +24,10 @@ namespace krico::backup {
         //!
         explicit Digest(const std::string &algorithm, const std::string &properties = "");
 
+        Digest(const Digest &) = delete;
+
+        Digest &operator=(const Digest &) = delete;
+
         ~Digest();
 
         //!
@@ -75,6 +79,11 @@ namespace krico::backup {
             constexpr bool operator!=(const result &rhs) const {
                 return !(*this == rhs);
             }
+
+            //!
+            //! Parses a string into a Digest::result (throws in case of errors)
+            //!
+            static void parse(result &r, const std::string &s);
         };
 
         static constexpr result SHA1_ZERO{.len_ = DigestLength::SHA1};

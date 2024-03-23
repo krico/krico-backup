@@ -67,6 +67,7 @@ TEST_F(BackupRunnerTest, run) {
     ASSERT_EQ(summary.numSymlinks(), read.numSymlinks());
     ASSERT_EQ(summary.previousTarget(), read.previousTarget());
     ASSERT_EQ(summary.currentTarget(), read.currentTarget());
+    ASSERT_EQ(summary.checksum(), read.checksum());
 
     const fs::path backupFile = runner.backupDir() / "file1.txt";
     const fs::path backupFileLink = runner.backupDir() / "fileLink.txt";

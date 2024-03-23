@@ -104,7 +104,7 @@ void Digest::reset() const {
     }
 }
 
-void Digest::update(const void *data, size_t len) const {
+void Digest::update(const void *data, const size_t len) const {
     if (!EVP_DigestUpdate(context_, data, len)) {
         THROW(openssl_error, "DigestUpdate");
     }
@@ -157,4 +157,24 @@ fs::path Digest::result::path(const uint8_t dirs) const {
         if (i < dirs) ss << fs::path::preferred_separator;
     }
     return ss.str();
+}
+
+void Digest::result::parse(result &r, const std::string &s) {
+    if (s.length() > 2 * EVP_MAX_MD_SIZE) {
+        THROW_EXCEPTION("Digest result to long (len="
+            + std::to_string(s.length()) + " > max=" + std::to_string(2 * EVP_MAX_MD_SIZE) + ")" + " '" + s + "'");
+    }
+    if (s.length() % 2 != 0) {
+        THROW_EXCEPTION("Digest result must be even (len=" + std::to_string(s.length()) + ")" + " '" + s + "'");
+    }
+
+    r.len_ = 0;
+    const char *ptr = s.c_str();
+    for (int i = 0; i < s.length(); i += 2) {
+        const char *eptr = ptr + 2;
+        if (auto [_, ec] = std::from_chars(ptr, eptr, r.md_[r.len_++], 16); ec != std::errc()) {
+            THROW_ERROR_CODE("Failed to parse '" + s + "'", std::make_error_code(ec));
+        }
+        ptr = eptr;
+    }
 }

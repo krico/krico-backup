@@ -1,4 +1,5 @@
 #include "krico/backup/Digest.h"
+#include "krico/backup/exception.h"
 #include <gtest/gtest.h>
 
 using namespace krico::backup;
@@ -89,4 +90,58 @@ TEST(DigestTest, md5_zero) {
 TEST(DigestTest, md5_sum) {
     constexpr auto data = "Hello OpenSSL krico-backup world";
     ASSERT_EQ("956c693dd8533233810472f64715964c", md5_sum(data));
+}
+
+TEST(DigestTest, parse) {
+    Digest::result r{};
+
+    Digest::result::parse(r, Digest::SHA1_ZERO.str());
+    ASSERT_EQ(Digest::SHA1_ZERO, r);
+
+    Digest::result::parse(r, Digest::SHA256_ZERO.str());
+    ASSERT_EQ(Digest::SHA256_ZERO, r);
+
+    Digest::result::parse(r, Digest::MD5_ZERO.str());
+    ASSERT_EQ(Digest::MD5_ZERO, r);
+
+    const std::string val{"test"};
+
+    const Digest sha1 = Digest::sha1();
+    sha1.update(val.c_str(), val.length());
+    auto expected = sha1.digest();
+    Digest::result::parse(r, expected.str());
+    ASSERT_EQ(expected, r);
+
+    const Digest sha256 = Digest::sha256();
+    sha256.update(val.c_str(), val.length());
+    expected = sha256.digest();
+    Digest::result::parse(r, expected.str());
+    ASSERT_EQ(expected, r);
+
+    const Digest md5 = Digest::md5();
+    md5.update(val.c_str(), val.length());
+    expected = md5.digest();
+    Digest::result::parse(r, expected.str());
+    ASSERT_EQ(expected, r);
+
+    std::stringstream ss;
+
+    ss << std::setw(2) << std::setfill('0') << "";
+    Digest::result::parse(r, ss.str());
+    ASSERT_TRUE(r.is_zero());
+    ASSERT_EQ(1, r.len_);
+
+    ss = {};
+    ss << '0';
+    ASSERT_THROW(Digest::result::parse(r, ss.str()), krico::backup::exception) << "Odd";
+
+    ss = {};
+    ss << std::setw(2 * EVP_MAX_MD_SIZE) << std::setfill('0') << "";
+    Digest::result::parse(r, ss.str());
+    ASSERT_TRUE(r.is_zero());
+    ASSERT_EQ(EVP_MAX_MD_SIZE, r.len_);
+    ss << '0';
+    ASSERT_THROW(Digest::result::parse(r, ss.str()), krico::backup::exception) << "Odd";
+    ss << '0';
+    ASSERT_THROW(Digest::result::parse(r, ss.str()), krico::backup::exception) << "Too large";
 }

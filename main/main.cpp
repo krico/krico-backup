@@ -163,7 +163,7 @@ struct log_subcommand : subcommand {
     }
 
     void log() const {
-        static constexpr auto WIDTH = 8;
+        static constexpr auto WIDTH = 10;
         BackupRepository repo{baseOptions_.repoPath_};
         auto &log = repo.repositoryLog();
         if (log.head().is_zero()) {
@@ -197,8 +197,9 @@ struct log_subcommand : subcommand {
                 case RunBackupLogEntry::log_entry_type: {
                     const auto &entry = log_entry_cast<RunBackupLogEntry>(headerEntry);
                     std::cout << std::left << std::setw(WIDTH) << "Author:" << entry.author() << std::endl;
-                    std::cout << std::endl;
                     const auto &summary = entry.summary();
+                    std::cout << std::left << std::setw(WIDTH) << "Checksum:" << summary.checksum().str() << std::endl;
+                    std::cout << std::endl;
                     const auto total = summary.numCopiedFiles()
                                        + summary.numHardLinkedFiles()
                                        + summary.numSymlinks();
