@@ -51,24 +51,6 @@ TEST_F(BackupRunnerTest, run) {
 
     std::cout << summary << std::endl;
 
-    std::stringstream ss;
-    summary.write(ss);
-    BackupSummary read{ss};
-
-    ASSERT_EQ(summary.directoryId().str(), read.directoryId().str());
-    ASSERT_EQ(summary.directoryId().id_path(), read.directoryId().id_path());
-    ASSERT_EQ(summary.date(), read.date());
-    ASSERT_EQ(summary.backupId(), read.backupId());
-    ASSERT_EQ(summary.startTime(), read.startTime());
-    ASSERT_EQ(summary.endTime(), read.endTime());
-    ASSERT_EQ(summary.numDirectories(), read.numDirectories());
-    ASSERT_EQ(summary.numCopiedFiles(), read.numCopiedFiles());
-    ASSERT_EQ(summary.numHardLinkedFiles(), read.numHardLinkedFiles());
-    ASSERT_EQ(summary.numSymlinks(), read.numSymlinks());
-    ASSERT_EQ(summary.previousTarget(), read.previousTarget());
-    ASSERT_EQ(summary.currentTarget(), read.currentTarget());
-    ASSERT_EQ(summary.checksum(), read.checksum());
-
     const fs::path backupFile = runner.backupDir() / "file1.txt";
     const fs::path backupFileLink = runner.backupDir() / "fileLink.txt";
     const fs::path backupDigest = repository->hardLinksDir() /

@@ -20,7 +20,18 @@ namespace krico::backup {
 
         explicit BackupSummary(const BackupSummaryBuilder &builder);
 
-        explicit BackupSummary(std::istream &in);
+        BackupSummary(BackupDirectoryId directoryId,
+                      const std::chrono::year_month_day &date,
+                      std::filesystem::path backupId,
+                      const std::chrono::system_clock::time_point &startTime,
+                      const std::chrono::system_clock::time_point &endTime,
+                      uint32_t numDirectories,
+                      uint32_t numCopiedFiles,
+                      uint32_t numHardLinkedFiles,
+                      uint32_t numSymlinks,
+                      std::filesystem::path previousTarget,
+                      std::filesystem::path currentTarget,
+                      const Digest::result &checksum);
 
         [[nodiscard]] const BackupDirectoryId &directoryId() const { return directoryId_; }
         [[nodiscard]] const std::chrono::year_month_day &date() const { return date_; }
@@ -40,7 +51,9 @@ namespace krico::backup {
         //!
         [[nodiscard]] std::filesystem::path summaryFile(const std::filesystem::path &directoryMetaDir) const;
 
-        void write(std::ostream &out) const;
+        bool operator==(const BackupSummary &) const;
+
+        bool operator!=(const BackupSummary &rhs) const { return !(*this == rhs); }
 
     private:
         BackupDirectoryId directoryId_;
@@ -118,6 +131,6 @@ namespace krico::backup {
         Digest::result checksum_{};
 
         friend class BackupSummary;
-        FRIEND_TEST(BackupRepositoryLogTest, putRunBackupLogEntry);
+        FRIEND_TEST(BackupRepositoryLogTest, putRunBackupRecord);
     };
 }

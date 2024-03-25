@@ -157,9 +157,48 @@ struct run_subcommand : subcommand {
 };
 
 struct log_subcommand : subcommand {
+    uint32_t number_{0};
+    CLI::Option *optionNumber_{nullptr};
+    uint32_t skip_{0};
+    CLI::Option *optionSkip_{nullptr};
+    CLI::Option *optionFull_{nullptr};
+    std::string hash_{};
+    CLI::Option *optionHash_{nullptr};
+    CLI::Option *optionOne_{nullptr};
+    CLI::Option *optionFileList_{nullptr};
+
     log_subcommand(CLI::App &app, const base_options &baseOptions)
         : subcommand(app, baseOptions, "log", "Print the log of what happened in the backup repository") {
+        optionNumber_ = subCommand_->add_option("-n,--number", number_, "Limit the number of log records to output")
+                ->type_name("<number>");
+        optionSkip_ = subCommand_->add_option("-s,--skip", skip_, "Skip the first <number> records")
+                ->type_name("<number>");
+        optionFull_ = subCommand_->add_flag("-f,--full", "Print all information about each log record");
+        optionOne_ = subCommand_->add_flag("-1", "Print a single result (equivalent to '-n 1')");
+        optionFileList_ = subCommand_->add_flag("--file-list", "Print the list of files of every 'run' log record\n"
+                                                "Best if used in combination with `-n` or `-1` since could be a lot of output");
+        optionHash_ = subCommand_->add_option("hash", hash_, "Start printing logs from this log <hash>.\n"
+                                              "A full hash such as 00223f175b5efa40724916ac50176e5fd5204fd2\n"
+                                              "A partial hash like 00223f17 (must be unique)");
         subCommand_->callback([&] { this->log(); });
+    }
+
+    Digest::result start_hash(BackupRepositoryLog &log) const {
+        if (*optionHash_) {
+            if (const auto found = log.findHash(hash_); found.empty()) {
+                throw exception("No hash found matching '" + hash_ + "'");
+            } else {
+                if (found.size() != 1) {
+                    std::stringstream ss;
+                    for (const auto &h: found) {
+                        ss << std::endl << h.str();
+                    }
+                    throw exception("More than one hash found matching '" + hash_ + "'" + ss.str());
+                }
+                return found.at(0);
+            }
+        }
+        return log.head();
     }
 
     void log() const {
@@ -171,50 +210,93 @@ struct log_subcommand : subcommand {
             std::cout << "No log entries in this repository" << std::endl;
             return;
         }
-        auto prev = log.head();
+        uint32_t first{0};
+        if (*optionSkip_) first = skip_;
+        uint32_t last{std::numeric_limits<uint32_t>::max()};
+        if (*optionNumber_) {
+            last = number_ + first;
+        }
+        if (*optionOne_) {
+            last = 1 + first;
+        }
+        uint32_t count = 0;
+        auto prev = start_hash(log);
         do {
-            const LogEntry &headerEntry = log.getLogEntry(prev);
-            const auto type = headerEntry.type();
-            std::cout << std::left << std::setw(5) << std::setfill(' ') << type << prev.str() << std::endl;
-            system_clock::time_point ts{duration_cast<system_clock::duration>(nanoseconds(headerEntry.ts()))};
-            const auto tt = system_clock::to_time_t(ts);
+            if (count++ == last) break;
+            const LogHeader &headerEntry = log.getRecord(prev);
 
-            std::cout << std::left << std::setw(WIDTH) << "Date:" << std::ctime(&tt);
-            switch (type) {
-                case InitLogEntry::log_entry_type: {
-                    const auto &entry = log_entry_cast<InitLogEntry>(headerEntry);
-                    std::cout << std::left << std::setw(WIDTH) << "Author:" << entry.author() << std::endl;
-                }
-                break;
-                case AddDirectoryLogEntry::log_entry_type: {
-                    const auto &entry = log_entry_cast<AddDirectoryLogEntry>(headerEntry);
-                    std::cout << std::left << std::setw(WIDTH) << "Author:" << entry.author() << std::endl;
-                    std::cout << std::endl;
-                    std::cout << "  Added \"" << entry.directoryId() << "\""
-                            << " as backup of \"" << entry.sourceDir() << "\"" << std::endl;
-                }
-                break;
-                case RunBackupLogEntry::log_entry_type: {
-                    const auto &entry = log_entry_cast<RunBackupLogEntry>(headerEntry);
-                    std::cout << std::left << std::setw(WIDTH) << "Author:" << entry.author() << std::endl;
-                    const auto &summary = entry.summary();
-                    std::cout << std::left << std::setw(WIDTH) << "Checksum:" << summary.checksum().str() << std::endl;
-                    std::cout << std::endl;
-                    const auto total = summary.numCopiedFiles()
-                                       + summary.numHardLinkedFiles()
-                                       + summary.numSymlinks();
-                    const auto elapsed = duration_cast<nanoseconds>(summary.endTime() - summary.startTime());
-                    std::cout << "  Backed up " << summary.directoryId().relative_path()
-                            << " (" << total << " entries)"
-                            << " in " << std::format("{0:%T}", elapsed) << std::endl;
-                }
-                break;
-                default:
-                    std::cout << "UNKNOWN LOG ENTRY TYPE" << std::endl;
+            if (count > first) {
+                const auto type = headerEntry.type();
+                std::cout << std::left << std::setw(5) << std::setfill(' ') << type << prev.str() << std::endl;
+                system_clock::time_point ts{headerEntry.ts()};
+                const auto tt = system_clock::to_time_t(ts);
+
+                std::cout << std::left << std::setw(WIDTH) << "Date:" << std::ctime(&tt);
+                switch (type) {
+                    case InitRecord::log_entry_type: {
+                        const auto &entry = log_record_cast<InitRecord>(headerEntry);
+                        std::cout << std::left << std::setw(WIDTH) << "Author:" << entry.author() << std::endl;
+                    }
                     break;
+                    case AddDirectoryRecord::log_entry_type: {
+                        const auto &entry = log_record_cast<AddDirectoryRecord>(headerEntry);
+                        std::cout << std::left << std::setw(WIDTH) << "Author:" << entry.author() << std::endl;
+                        std::cout << std::endl;
+                        std::cout << "  Added \"" << entry.directoryId() << "\""
+                                << " as backup of " << entry.sourceDir() << "" << std::endl;
+
+                        if (*optionFull_) {
+                            constexpr auto W = 12;
+                            std::cout << std::endl;
+                            std::cout << std::setw(W) << "Directory:" << entry.directoryId() << std::endl;
+                            std::cout << std::setw(W) << "SourceDir:" << entry.sourceDir().string() << std::endl;
+                        }
+                    }
+                    break;
+                    case RunBackupRecord::log_entry_type: {
+                        const auto &entry = log_record_cast<RunBackupRecord>(headerEntry);
+                        std::cout << std::left << std::setw(WIDTH) << "Author:" << entry.author() << std::endl;
+                        const auto &summary = entry.summary();
+                        std::cout << std::left << std::setw(WIDTH) << "Checksum:" << summary.checksum().str() <<
+                                std::endl;
+                        std::cout << std::endl;
+                        const auto total = summary.numCopiedFiles()
+                                           + summary.numHardLinkedFiles()
+                                           + summary.numSymlinks();
+                        const auto elapsed = duration_cast<nanoseconds>(summary.endTime() - summary.startTime());
+                        std::cout << "  Backed up " << summary.directoryId().relative_path()
+                                << " (" << total << " entries)"
+                                << " in " << std::format("{0:%T}", elapsed) << std::endl;
+
+                        if (*optionFull_) {
+                            constexpr auto W = 12;
+                            std::cout << std::endl;
+                            std::cout << summary << std::endl;
+                        }
+                        if (*optionFileList_) {
+                            //TODO: file-list should be structured (not just plain text)
+                            std::cout << std::endl;
+                            if (const auto *backupDirectory = repo.get_directory(summary.directoryId())) {
+                                auto summaryFile = summary.summaryFile(backupDirectory->metaDir());
+                                if (std::ifstream in{summaryFile}; in) {
+                                    std::cout << in.rdbuf();
+                                } else {
+                                    throw exception("Failed to open '" + summaryFile.string() + "'");
+                                }
+                            } else {
+                                std::cerr << "ERROR: \"" << summary.directoryId().str() << "\" NOT FOUND" << std::endl;
+                                std::cout << "N/A" << std::endl;
+                            }
+                        }
+                    }
+                    break;
+                    default:
+                        std::cout << "UNKNOWN LOG ENTRY TYPE" << std::endl;
+                        break;
+                }
             }
             prev = headerEntry.prev();
-            if (!prev.is_zero()) std::cout << std::endl;
+            if (!prev.is_zero() && count != last) std::cout << std::endl;
         } while (!prev.is_zero());
     }
 };

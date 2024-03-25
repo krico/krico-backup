@@ -8,7 +8,7 @@ namespace krico::backup {
     //! Unique identifier of a BackupDirectory
     //!
     struct BackupDirectoryId {
-        explicit BackupDirectoryId(const std::string &id);
+        explicit BackupDirectoryId(const std::string_view &id);
 
         //!
         //! string representation

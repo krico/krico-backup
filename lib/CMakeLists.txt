@@ -40,6 +40,11 @@ add_library(libKricoBackup
         src/BackupSummary.cpp
         include/krico/backup/os.h
         src/os.cpp
+        include/krico/backup/records.h
+        src/records.cpp
+        include/krico/backup/log_records.h
+        include/krico/backup/LogEntryType.h
+        src/log_records.cpp
 )
 
 target_include_directories(libKricoBackup PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)

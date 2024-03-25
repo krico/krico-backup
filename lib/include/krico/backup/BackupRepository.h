@@ -70,6 +70,11 @@ namespace krico::backup {
 
         std::vector<const BackupDirectory *> list_directories();
 
+        //!
+        //! @return the BackupDirecotry with `id` or `nullptr`
+        //!
+        [[nodiscard]] const BackupDirectory *get_directory(const BackupDirectoryId &id);
+
         BackupSummary run_backup(const BackupDirectory &directory);
 
         [[nodiscard]] BackupRepositoryLog &repositoryLog();

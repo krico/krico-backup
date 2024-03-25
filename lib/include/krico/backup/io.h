@@ -129,6 +129,7 @@
   }                                                                                   \
   status;                                                                             \
 })
+
 //!
 //! Deletes a file
 //!
@@ -139,6 +140,20 @@
 } while (false)
 
 
+//!
+//! Get the size of a file
+//!
+//! @return size of the file link
+//!
+#define FILE_SIZE(file) ({                                                  \
+  std::error_code error_code$;                                              \
+  auto size = std::filesystem::file_size(file, error_code$);                \
+  if (error_code$) {                                                        \
+    THROW_ERROR_CODE("Failed status '" + file.string() + "'", error_code$); \
+  }                                                                         \
+  size;                                                                     \
+})
+
 namespace krico::backup {
     //!
     //! @return true if path is a lexical sub-path of base (e.g. /a/b is sub_path of /a and /a/b is NOT of /b)
@@ -148,5 +163,4 @@ namespace krico::backup {
     std::filesystem::path lexically_relative_symlink_target(const std::filesystem::path &link,
                                                             const std::filesystem::path &target,
                                                             const std::filesystem::path &base);
-
 }

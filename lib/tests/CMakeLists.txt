@@ -26,6 +26,8 @@ add_executable(krico_backup_tests
         BackupRunnerTest.cpp
         BackupRepositoryLogTest.cpp
         uint8_utils_test.cpp
+        records_test.cpp
+        log_records_test.cpp
 )
 target_link_libraries(krico_backup_tests libKricoBackup GTest::gtest_main)
 

@@ -60,7 +60,7 @@ BackupRepository BackupRepository::initialize(const std::filesystem::path &dir) 
         MKDIR(repo.hardLinksDir());
     }
     repo.config().set(METADATA_SECTION, "", "init-ts", std::format("{}", system_clock::now()));
-    repo.repositoryLog().putInitLogEntry(get_username());
+    repo.repositoryLog().putInitRecord(get_username());
     return repo;
 }
 
@@ -111,20 +111,19 @@ const BackupDirectory &BackupRepository::add_directory(const fs::path &directory
         default:
             THROW_EXCEPTION("Source directory must be a directory '" + sourceDirectory.string() + "'");
     }
-    BackupDirectoryId id{relDir};
-    BackupDirectory::ptr backupDirectory{std::make_unique<BackupDirectory>(*this, id)};
-
+    BackupDirectoryId id{relDir.string()};
     auto &directories = loadDirectories();
     if (std::ranges::find_if(directories, [&](auto &d) {
-        return d->id() == backupDirectory->id();
+        return d->id() == id;
     }) != directories.end()) {
-        THROW_EXCEPTION("Duplicate directory id '" + backupDirectory->id().str() + "'");
+        THROW_EXCEPTION("Duplicate directory id '" + id.str() + "'");
     }
+    auto backupDirectory{std::make_unique<BackupDirectory>(*this, id)};
     backupDirectory->configure(sourceDir);
     auto &ret = *directories.emplace_back(std::move(backupDirectory));
     std::ranges::sort(directories, [](auto &d1, auto &d2) { return d1->id().str() < d2->id().str(); });
 
-    repositoryLog().putAddDirectoryLogEntry(get_username(), ret.id().str(), sourceDir);
+    repositoryLog().putAddDirectoryRecord(get_username(), ret.id().str(), sourceDir);
 
     return ret;
 }
@@ -139,10 +138,20 @@ std::vector<const BackupDirectory *> BackupRepository::list_directories() {
     return ret;
 }
 
+const BackupDirectory *BackupRepository::get_directory(const BackupDirectoryId &id) {
+    auto &directories = loadDirectories();
+    if (auto found = std::ranges::find_if(directories, [&](auto &d) {
+        return d->id() == id;
+    }); found != directories.end()) {
+        return found->get();
+    }
+    return nullptr;
+}
+
 BackupSummary BackupRepository::run_backup(const BackupDirectory &directory) {
     BackupRunner runner{directory};
     auto s = runner.run();
-    repositoryLog().putRunBackupLogEntry(get_username(), s);
+    repositoryLog().putRunBackupRecord(get_username(), s);
     return s;
 }
 

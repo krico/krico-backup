@@ -1,233 +1,17 @@
 #include "krico/backup/BackupRepositoryLog.h"
 #include "krico/backup/exception.h"
-#include "krico/backup/uint8_utils.h"
+#include "krico/backup/io.h"
+#include "krico/backup/TemporaryFile.h"
 #include "spdlog/spdlog.h"
 #include <fstream>
 #include <cstring>
 #include <chrono>
 #include <utility>
 
-#include "krico/backup/io.h"
-#include "krico/backup/TemporaryFile.h"
 
 using namespace krico::backup;
 using namespace std::chrono;
 namespace fs = std::filesystem;
-
-LogEntry::LogEntry() : header_{} {
-}
-
-LogEntry::LogEntry(const LogEntryType t) : LogEntry() {
-    type(t);
-}
-
-LogEntryType LogEntry::type() const {
-    return static_cast<LogEntryType>(header_[0]);
-}
-
-void LogEntry::type(LogEntryType type) {
-    header_[0] = static_cast<uint8_t>(type);
-}
-
-Digest::result LogEntry::prev() const {
-    Digest::result r{};
-    std::memcpy(r.md_, header_ + offsets::LogEntry::Hash, lengths::LogEntry::Hash);
-    r.len_ = lengths::LogEntry::Hash;
-    return r;
-}
-
-void LogEntry::prev(const Digest::result &prev) {
-    if (prev.len_ != lengths::LogEntry::Hash) {
-        THROW_EXCEPTION("Invalid digest length=" + std::to_string(prev.len_)
-            + " (expected " + std::to_string(lengths::LogEntry::Hash) + ")");
-    }
-    std::memcpy(header_ + 1, prev.md_, lengths::LogEntry::Hash);
-}
-
-uint64_t LogEntry::ts() const {
-    return get_le<uint64_t>(header_ + offsets::LogEntry::Ts);
-}
-
-void LogEntry::ts(const uint64_t ts) {
-    put_le(header_ + offsets::LogEntry::Ts, ts);
-}
-
-void LogEntry::update(const Digest &digest) const {
-    digest.update(header_, lengths::LogEntry::TotalLength);
-}
-
-void LogEntry::write(std::ostream &out) const {
-    if (!out.write(reinterpret_cast<const char *>(header_), lengths::LogEntry::TotalLength)) {
-        THROW_EXCEPTION("Failed to write LogEntry");
-    }
-}
-
-void LogEntry::read(std::istream &in) {
-    if (!in.read(reinterpret_cast<char *>(header_), lengths::LogEntry::TotalLength)) {
-        THROW_EXCEPTION("Failed to read LogEntry");
-    }
-}
-
-InitLogEntry::InitLogEntry() : LogEntry(log_entry_type) {
-}
-
-InitLogEntry::InitLogEntry(std::string author) : LogEntry(log_entry_type), author_(std::move(author)) {
-}
-
-void InitLogEntry::update(const Digest &digest) const {
-    LogEntry::update(digest);
-    digest.update(author_.c_str(), author_.length());
-}
-
-void InitLogEntry::write(std::ostream &out) const {
-    LogEntry::write(out);
-    out << author_;
-}
-
-void InitLogEntry::read(std::istream &in) {
-    LogEntry::read(in);
-    author_ = std::string((std::istreambuf_iterator(in)), std::istreambuf_iterator<char>());
-}
-
-AddDirectoryLogEntry::AddDirectoryLogEntry() : LogEntry(log_entry_type) {
-}
-
-AddDirectoryLogEntry::~AddDirectoryLogEntry() {
-    if (buffer_) {
-        std::free(buffer_);
-        buffer_ = nullptr;
-    }
-}
-
-AddDirectoryLogEntry::AddDirectoryLogEntry(const std::string &author,
-                                           const std::string &directoryId,
-                                           const std::filesystem::path &sourceDir)
-    : LogEntry(log_entry_type),
-      authorLength_(author.length()),
-      directoryIdLength_(directoryId.length()) {
-    const auto sourceDirStr = sourceDir.string();
-    sourceDirLength_ = sourceDirStr.length();
-    buffer_ = static_cast<uint8_t *>(std::malloc(bufferSize()));
-    if (!buffer_) {
-        THROW_EXCEPTION("Failed to allocate buffer of size: " + std::to_string(bufferSize()));
-    }
-    buffer_[offsets::AddDirectoryLogEntry::AuthorLength] = authorLength_;
-    put_le(buffer_ + offsets::AddDirectoryLogEntry::DirectoryIdLength, directoryIdLength_);
-    put_le(buffer_ + offsets::AddDirectoryLogEntry::SourceDirLength, sourceDirLength_);
-    std::memcpy(buffer_ + offsets::AddDirectoryLogEntry::Author, author.c_str(), authorLength_);
-    std::memcpy(buffer_ + offsets::AddDirectoryLogEntry::Author + authorLength_,
-                directoryId.c_str(), directoryIdLength_);
-    std::memcpy(buffer_ + offsets::AddDirectoryLogEntry::Author + authorLength_ + directoryIdLength_,
-                sourceDirStr.c_str(), sourceDirLength_);
-}
-
-void AddDirectoryLogEntry::update(const Digest &digest) const {
-    LogEntry::update(digest);
-    digest.update(buffer_, bufferSize());
-}
-
-void AddDirectoryLogEntry::write(std::ostream &out) const {
-    LogEntry::write(out);
-    if (!out.write(reinterpret_cast<const char *>(buffer_), bufferSize())) {
-        THROW_EXCEPTION("Failed to write AddDirectoryLogEntry");
-    }
-}
-
-void AddDirectoryLogEntry::read(std::istream &in) {
-    LogEntry::read(in);
-    uint8_t lengths[lengths::AddDirectoryLogEntry::Lengths];
-    if (!in.read(reinterpret_cast<char *>(lengths), lengths::AddDirectoryLogEntry::Lengths)) {
-        THROW_EXCEPTION("Failed to read AddDirectoryLogEntry lengths");
-    }
-    authorLength_ = lengths[offsets::AddDirectoryLogEntry::AuthorLength];
-    directoryIdLength_ = get_le<uint16_t>(lengths + offsets::AddDirectoryLogEntry::DirectoryIdLength);
-    sourceDirLength_ = get_le<uint16_t>(lengths + offsets::AddDirectoryLogEntry::SourceDirLength);
-
-    if (buffer_) {
-        std::free(buffer_);
-    }
-    buffer_ = static_cast<uint8_t *>(std::malloc(bufferSize()));
-    if (!buffer_) {
-        THROW_EXCEPTION("Failed to allocate buffer of size: " + std::to_string(bufferSize()));
-    }
-    std::memcpy(buffer_, lengths, lengths::AddDirectoryLogEntry::Lengths);
-    if (!in.read(reinterpret_cast<char *>(buffer_ + lengths::AddDirectoryLogEntry::Lengths),
-                 bufferSize() - lengths::AddDirectoryLogEntry::Lengths)) {
-        THROW_EXCEPTION("Failed to read AddDirectoryLogEntry data");
-    }
-}
-
-std::string_view AddDirectoryLogEntry::author() const {
-    return std::string_view{
-        reinterpret_cast<const char *>(buffer_
-                                       + offsets::AddDirectoryLogEntry::Author),
-        authorLength_
-    };
-}
-
-std::string_view AddDirectoryLogEntry::directoryId() const {
-    return std::string_view{
-        reinterpret_cast<const char *>(buffer_
-                                       + offsets::AddDirectoryLogEntry::Author
-                                       + authorLength_),
-        directoryIdLength_
-    };
-}
-
-std::string_view AddDirectoryLogEntry::sourceDir() const {
-    return std::string_view{
-        reinterpret_cast<const char *>(buffer_
-                                       + offsets::AddDirectoryLogEntry::Author
-                                       + authorLength_
-                                       + directoryIdLength_),
-        sourceDirLength_
-    };
-}
-
-size_t AddDirectoryLogEntry::bufferSize() const {
-    return lengths::AddDirectoryLogEntry::Lengths + authorLength_ + directoryIdLength_ + sourceDirLength_;
-}
-
-RunBackupLogEntry::RunBackupLogEntry() : LogEntry(log_entry_type) {
-}
-
-RunBackupLogEntry::RunBackupLogEntry(std::string author, const BackupSummary &summary)
-    : LogEntry(log_entry_type), author_(std::move(author)),
-      summary_(new BackupSummary(summary)) {
-}
-
-std::string_view RunBackupLogEntry::author() const {
-    return author_;
-}
-
-const BackupSummary &RunBackupLogEntry::summary() const {
-    return *summary_;
-}
-
-void RunBackupLogEntry::update(const Digest &digest) const {
-    if (!summary_)
-        THROW_EXCEPTION("Cannot update RunBackupLogEntry without a summary");
-    LogEntry::update(digest);
-    digest.update(author_.c_str(), author_.size());
-    std::stringstream ss;
-    summary_->write(ss);
-    const std::string written = ss.str();
-    digest.update(written.c_str(), written.size());
-}
-
-void RunBackupLogEntry::write(std::ostream &out) const {
-    LogEntry::write(out);
-    out << author_ << std::endl;
-    summary_->write(out);
-}
-
-void RunBackupLogEntry::read(std::istream &in) {
-    LogEntry::read(in);
-    if (!std::getline(in, author_)) {
-        THROW_EXCEPTION("Failed to read author");
-    }
-    summary_ = std::make_unique<BackupSummary>(in);
-}
 
 BackupRepositoryLog::BackupRepositoryLog(std::filesystem::path dir)
     : dir_(std::move(dir)),
@@ -236,95 +20,125 @@ BackupRepositoryLog::BackupRepositoryLog(std::filesystem::path dir)
       digest_(Digest::sha1()) {
 }
 
-void BackupRepositoryLog::putInitLogEntry(const std::string &author) {
-    InitLogEntry entry{author};
-    putLogEntry(entry);
+void BackupRepositoryLog::putInitRecord(const std::string &author) {
+    InitRecord entry{head(), author};
+    putRecord(entry);
 }
 
-void BackupRepositoryLog::putAddDirectoryLogEntry(const std::string &author,
-                                                  const std::string &directoryId,
-                                                  const std::filesystem::path &sourceDir) {
-    AddDirectoryLogEntry entry{author, directoryId, sourceDir};
-    putLogEntry(entry);
+void BackupRepositoryLog::putAddDirectoryRecord(const std::string &author,
+                                                const std::string &directoryId,
+                                                const std::filesystem::path &sourceDir) {
+    AddDirectoryRecord entry{head(), author, directoryId, sourceDir};
+    putRecord(entry);
 }
 
-void BackupRepositoryLog::putRunBackupLogEntry(const std::string &author, const BackupSummary &summary) {
-    RunBackupLogEntry entry{author, summary};
-    putLogEntry(entry);
+void BackupRepositoryLog::putRunBackupRecord(const std::string &author, const BackupSummary &summary) {
+    RunBackupRecord entry{head(), author, summary};
+    putRecord(entry);
 }
 
-void BackupRepositoryLog::putLogEntry(LogEntry &entry) {
-    entry.prev(head());
-    entry.ts(duration_cast<nanoseconds>(system_clock::now().time_since_epoch()).count());
+void BackupRepositoryLog::putRecord(LogHeader &entry) {
     digest_.reset();
-    entry.update(digest_);
+    const size_t len = entry.end_offset();
+    digest_.update(entry.buffer().ptr(), len);
     const auto r = digest_.digest();
     const fs::path file{dir_ / r.path(DIGEST_DIRS)};
-    const fs::path dir{file.parent_path()};
-    if (!is_directory(dir)) {
+    if (const fs::path dir{file.parent_path()}; !is_directory(dir)) {
         MKDIRS(dir);
     }
-    if (std::ofstream out{file}; out) {
-        entry.write(out);
+    if (std::ofstream out{file}; !(out && out.write(entry.buffer().const_cptr(), static_cast<std::streamsize>(len)))) {
+        THROW_EXCEPTION("Failed to write LogEntry to '" + file.string() + "'");
     }
 
     const TemporaryFile tmp(headFile_.parent_path(), HEAD_FILE);
-    if (std::ofstream out{tmp.file()}; out) {
-        out << r.str();
+    if (std::ofstream out{tmp.file()}; !(out && out << r.str())) {
+        THROW_EXCEPTION("Failed to write LogEntry hash to '" + tmp.file().string() + "'");
     }
+
     // Try to be atomic
     RENAME_FILE(tmp.file(), headFile_);
     head_ = r;
 }
 
-const LogEntry &BackupRepositoryLog::getLogEntry(const Digest::result &digest) {
+const LogHeader &BackupRepositoryLog::getRecord(const Digest::result &digest) {
     const fs::path file{dir_ / digest.path(DIGEST_DIRS)};
+    auto length = FILE_SIZE(file);
     if (std::ifstream in{file}; in) {
         const auto entryType = in.peek();
         if (entryType == std::ifstream::traits_type::eof()) {
-            THROW_EXCEPTION("LogEntry '" + digest.str() + "' corrupt (missing type)! File '" + file.string() + "'");
+            THROW_EXCEPTION("LogHeader '" + digest.str() + "' corrupt (missing type)! File '" + file.string() + "'");
         }
-        auto type = static_cast<LogEntryType>(entryType);
-        switch (type) {
-            case InitLogEntry::log_entry_type:
-                readLogEntry_ = std::make_unique<InitLogEntry>();
+        LogHeader *record;
+        switch (static_cast<LogEntryType>(entryType)) {
+            case InitRecord::log_entry_type:
+                record = &readers_.init_;
                 break;
-            case AddDirectoryLogEntry::log_entry_type:
-                readLogEntry_ = std::make_unique<AddDirectoryLogEntry>();
+            case AddDirectoryRecord::log_entry_type:
+                record = &readers_.add_;
                 break;
-            case RunBackupLogEntry::log_entry_type:
-                readLogEntry_ = std::make_unique<RunBackupLogEntry>();
+            case RunBackupRecord::log_entry_type:
+                record = &readers_.run_;
                 break;
             default:
-                spdlog::warn("Unknown LogEntryType: {}", std::to_string(entryType));
-                readLogEntry_ = std::make_unique<LogEntry>();
+                spdlog::warn("Unknown LogHeader: {}", std::to_string(entryType));
+                record = &readers_.header_;
                 break;
         }
-        readLogEntry_->read(in);
-        return *readLogEntry_;
+        if (!in.read(record->buffer().cptr(), static_cast<std::streamsize>(length))) {
+            THROW_EXCEPTION("Failed to read LogHeader '" + digest.str() + "'! File '" + file.string() + "'");
+        }
+        record->parse_offsets();
+        return *record;
     }
-    THROW_EXCEPTION("LogEntry '" + digest.str() + "' not found! File '" + file.string() + "'");
+    THROW_EXCEPTION("LogHeader '" + digest.str() + "' not found! File '" + file.string() + "'");
 }
 
 const Digest::result &BackupRepositoryLog::head() {
     if (head_.len_ == 0) {
         if (exists(headFile_)) {
-            char buf[lengths::LogEntry::Hash * 2];
-            const char *ptr = buf;
-            if (std::ifstream in{headFile_}; in.read(buf, lengths::LogEntry::Hash * 2)) {
-                while (head_.len_ < lengths::LogEntry::Hash) {
-                    const char *eptr = ptr + 2;
-                    if (auto [_, ec] = std::from_chars(ptr, eptr, head_.md_[head_.len_++], 16); ec != std::errc()) {
-                        THROW_ERROR_CODE("Failed to parse head", std::make_error_code(ec));
-                    }
-                    ptr = eptr;
-                }
+            std::string line;
+            if (std::ifstream in{headFile_}; std::getline(in, line)) {
+                Digest::result::parse(head_, line);
             } else {
                 THROW_EXCEPTION("Failed to read '" + headFile_.string() + "'");
             }
         } else {
-            head_.len_ = lengths::LogEntry::Hash;
+            head_.len_ = DigestLength::SHA1;
         }
     }
     return head_;
+}
+
+std::vector<Digest::result> BackupRepositoryLog::findHash(const std::string &hash) const {
+    // Just in case someone decided to change this... remind them they need to fix the logic ;)
+    static_assert(DIGEST_DIRS == 1, "This method only DIGEST_DIRS == 1");
+
+    if (hash.size() == DigestLength::SHA1) {
+        Digest::result digest{};
+        Digest::result::parse(digest, hash);
+        const fs::path file{dir_ / digest.path(DIGEST_DIRS)};
+        const auto status = STATUS(file);
+        if (status.type() == fs::file_type::regular) {
+            return {digest};
+        }
+        return {};
+    }
+
+    std::vector<Digest::result> hashes_{};
+
+    const std::string hashPrefix{hash.size() > 2 ? hash.substr(0, 2) : hash};
+    for (const auto &dirEntry: fs::directory_iterator{dir_}) {
+        if (!dirEntry.is_directory()) continue;
+        const std::string prefix{dirEntry.path().filename().string()};
+        if (!prefix.starts_with(hashPrefix)) continue;
+        for (const auto &fileEntry: fs::directory_iterator{dirEntry.path()}) {
+            if (!fileEntry.is_regular_file()) continue;
+            const std::string fileHash{prefix + fileEntry.path().filename().string()};
+            if (fileHash.starts_with(hash)) {
+                Digest::result::parse(hashes_.emplace_back(), fileHash);
+            }
+        }
+    }
+
+    return hashes_;
 }
